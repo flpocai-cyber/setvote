@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gold: #ffcc47;
+    --gold-dark: #bf7600;
+    --charcoal: #1a1a1a;
+  }
+
+  body {
+    @apply bg-charcoal-950 text-charcoal-200 overflow-x-hidden;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-charcoal-900/40 backdrop-blur-xl border border-white/5;
+  }
+
+  .gold-gradient {
+    background: linear-gradient(135deg, #ffefad 0%, #ffcc47 40%, #bf7600 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gold-bg-gradient {
+    background: linear-gradient(135deg, #ffcc47 0%, #bf7600 100%);
+  }
+
+  .premium-card {
+    @apply glass shadow-2xl transition-all duration-500 hover:shadow-gold-500/10 hover:border-gold-500/20;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-charcoal-950;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-charcoal-800 rounded-full hover:bg-gold-500/50 transition-colors;
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
