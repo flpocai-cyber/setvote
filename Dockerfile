@@ -1,5 +1,5 @@
 # ── Stage 1: Build ──────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -11,9 +11,9 @@ ARG VITE_SUPABASE_ANON_KEY
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
-# Instalar dependências primeiro (cache eficiente)
+# Instalar dependências (--legacy-peer-deps evita conflitos)
 COPY package*.json ./
-RUN npm ci --silent
+RUN npm install --legacy-peer-deps
 
 # Copiar código e fazer build
 COPY . .
