@@ -11,9 +11,9 @@ ARG VITE_SUPABASE_ANON_KEY
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
-# Instalar dependências (--legacy-peer-deps evita conflitos)
+# Instalar dependências — remove o lock gerado no Windows
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN rm -f package-lock.json && npm install --legacy-peer-deps
 
 # Copiar código e fazer build
 COPY . .
