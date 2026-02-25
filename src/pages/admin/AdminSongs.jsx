@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
     Plus, Search, Edit2, Trash2, Eye,
     Music, FileText, LayoutDashboard, Settings,
-    LogOut, ChevronRight, CheckCircle2, XCircle
+    LogOut, ChevronRight, CheckCircle2, XCircle, Users, UserCircle
 } from 'lucide-react'
 import SongModal from '../../components/admin/SongModal'
 
@@ -92,6 +92,12 @@ const AdminSongs = () => {
                     <Link to="/admin/musicas" className="flex items-center space-x-3 text-gold-500 bg-gold-500/10 px-4 py-3 rounded-xl transition-all">
                         <Music size={20} />
                         <span>Músicas</span>
+                    </Link>
+                    <Link to="/admin/patrocinadores" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <Users size={20} /><span>Patrocinadores</span>
+                    </Link>
+                    <Link to="/admin/sobre" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <UserCircle size={20} /><span>Sobre o Músico</span>
                     </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />
@@ -189,8 +195,8 @@ const AdminSongs = () => {
                                                 <button
                                                     onClick={() => handleToggleActive(song)}
                                                     className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold transition-all ${song.is_active
-                                                            ? 'bg-green-500/10 text-green-500'
-                                                            : 'bg-charcoal-800 text-charcoal-500'
+                                                        ? 'bg-green-500/10 text-green-500'
+                                                        : 'bg-charcoal-800 text-charcoal-500'
                                                         }`}
                                                 >
                                                     {song.is_active ? <CheckCircle2 size={14} /> : <XCircle size={14} />}

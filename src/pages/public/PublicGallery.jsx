@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import {
     Music, Star, FileText, ChevronRight, Search,
     Loader2, CheckCircle2, XCircle, Info, Heart,
-    Users, CreditCard, List, Copy, X, Globe, CheckCheck
+    Users, CreditCard, List, Copy, X, Globe, CheckCheck, UserCircle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PublicLyricsModal from '../../components/public/PublicLyricsModal'
@@ -22,6 +22,9 @@ const PublicGallery = () => {
     const [showSponsors, setShowSponsors] = useState(false)
     const [showPix, setShowPix] = useState(false)
     const [showAllSongs, setShowAllSongs] = useState(false)
+    const [showAbout, setShowAbout] = useState(false)
+    const [aboutPhotos, setAboutPhotos] = useState([])
+    const [lightboxPhoto, setLightboxPhoto] = useState(null)
     const [pixCopied, setPixCopied] = useState(false)
 
     // Helper to determine if voting is actually active
@@ -92,6 +95,14 @@ const PublicGallery = () => {
         setSongs(songsData || [])
         setAllSongs(allSongsData || [])
         setSponsors(sponsorsData || [])
+
+        // Fetch about photos
+        const { data: aboutPhotosData } = await supabase
+            .from('about_photos')
+            .select('*')
+            .order('display_order', { ascending: true })
+        setAboutPhotos(aboutPhotosData || [])
+
         setLoading(false)
     }
 
@@ -215,7 +226,7 @@ const PublicGallery = () => {
                         <span>{isVotingActive ? 'Votação Aberta' : 'Votação Encerrada'}</span>
                     </div>
 
-                    {/* 3 Action Buttons */}
+                    {/* 4 Action Buttons */}
                     <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
                         {sponsors.length > 0 && (
                             <button
@@ -242,6 +253,15 @@ const PublicGallery = () => {
                             <List size={15} />
                             <span>Músicas</span>
                         </button>
+                        {(profile?.about_text || aboutPhotos.length > 0) && (
+                            <button
+                                onClick={() => setShowAbout(true)}
+                                className="flex items-center space-x-2 bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/40 hover:bg-gold-500/5 text-charcoal-300 hover:text-gold-400 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                            >
+                                <UserCircle size={15} />
+                                <span>Sobre o Músico</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -384,8 +404,105 @@ const PublicGallery = () => {
                 )}
             </AnimatePresence>
 
+            {/* ─── MODAL: Sobre o Músico ─── */}
+            <AnimatePresence>
+                {showAbout && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+                        onClick={(e) => e.target === e.currentTarget && setShowAbout(false)}
+                    >
+                        <motion.div
+                            initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25 }}
+                            className="glass rounded-3xl border border-charcoal-700 w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+                        >
+                            {/* Header */}
+                            <div className="p-6 border-b border-charcoal-800 flex items-center justify-between flex-shrink-0">
+                                <div className="flex items-center space-x-3">
+                                    <UserCircle className="text-gold-500" size={22} />
+                                    <h2 className="text-lg font-display font-bold text-white">Sobre o Músico</h2>
+                                </div>
+                                <button onClick={() => setShowAbout(false)} className="text-charcoal-500 hover:text-white transition-colors p-1">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="overflow-y-auto flex-1 p-6 space-y-8">
+                                {/* Bio Text */}
+                                {profile?.about_text && (
+                                    <div className="text-charcoal-200 text-sm leading-relaxed whitespace-pre-wrap">
+                                        {profile.about_text}
+                                    </div>
+                                )}
+
+                                {/* Photo Gallery */}
+                                {aboutPhotos.length > 0 && (
+                                    <div>
+                                        {profile?.about_text && <div className="border-t border-charcoal-800 mb-6" />}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {aboutPhotos.map(photo => (
+                                                <div
+                                                    key={photo.id}
+                                                    className="group cursor-pointer"
+                                                    onClick={() => setLightboxPhoto(photo)}
+                                                >
+                                                    <div className="aspect-square rounded-xl overflow-hidden bg-charcoal-800 border border-charcoal-700 group-hover:border-gold-500/40 transition-all">
+                                                        <img
+                                                            src={photo.image_url}
+                                                            alt={photo.caption}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        />
+                                                    </div>
+                                                    {photo.caption && (
+                                                        <p className="text-xs text-charcoal-400 mt-2 text-center leading-snug px-1">
+                                                            {photo.caption}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ─── LIGHTBOX ─── */}
+            <AnimatePresence>
+                {lightboxPhoto && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center p-4"
+                        onClick={() => setLightboxPhoto(null)}
+                    >
+                        <button onClick={() => setLightboxPhoto(null)} className="absolute top-4 right-4 text-charcoal-400 hover:text-white p-2 z-10">
+                            <X size={28} />
+                        </button>
+                        <motion.img
+                            initial={{ scale: 0.85, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.85, opacity: 0 }}
+                            src={lightboxPhoto.image_url}
+                            alt={lightboxPhoto.caption}
+                            className="max-w-full max-h-[78vh] rounded-2xl object-contain shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        {lightboxPhoto.caption && (
+                            <p className="text-charcoal-300 text-sm mt-4 text-center max-w-md leading-relaxed">
+                                {lightboxPhoto.caption}
+                            </p>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
 
             {/* Main Content */}
+
             <main className="max-w-xl mx-auto px-4 pb-24">
                 {/* Search */}
                 <div className="relative mb-8">

@@ -172,3 +172,42 @@ create policy "Admin Upload Sponsors" on storage.objects for insert with check (
 drop policy if exists "Public Select Sponsors" on storage.objects;
 create policy "Public Select Sponsors" on storage.objects for select using (bucket_id = 'sponsors');
 
+-- ==================================================
+-- 16. Sobre o Músico — about_text e about_photos
+-- ==================================================
+
+-- Campo about_text no perfil
+alter table public.profiles
+  add column if not exists about_text text;
+
+-- Tabela de fotos do "Sobre o Músico"
+create table if not exists public.about_photos (
+  id uuid default gen_random_uuid() primary key,
+  image_url text not null,
+  caption text default '',
+  display_order integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- RLS para about_photos
+alter table public.about_photos enable row level security;
+
+drop policy if exists "Public about_photos are viewable by everyone." on public.about_photos;
+create policy "Public about_photos are viewable by everyone." on public.about_photos
+  for select using (true);
+
+drop policy if exists "Admins can manage about_photos" on public.about_photos;
+create policy "Admins can manage about_photos" on public.about_photos
+  for all to authenticated using (true) with check (true);
+
+-- Storage para fotos do músico
+insert into storage.buckets (id, name, public) values ('about-photos', 'about-photos', true) on conflict (id) do nothing;
+
+drop policy if exists "Admin Upload About Photos" on storage.objects;
+create policy "Admin Upload About Photos" on storage.objects for insert with check (bucket_id = 'about-photos' and auth.role() = 'authenticated');
+drop policy if exists "Public Select About Photos" on storage.objects;
+create policy "Public Select About Photos" on storage.objects for select using (bucket_id = 'about-photos');
+drop policy if exists "Admin Delete About Photos" on storage.objects;
+create policy "Admin Delete About Photos" on storage.objects for delete using (bucket_id = 'about-photos' and auth.role() = 'authenticated');
+
+

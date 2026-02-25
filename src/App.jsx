@@ -12,6 +12,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminSongs from './pages/admin/AdminSongs'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminSponsors from './pages/admin/AdminSponsors'
+import AdminAbout from './pages/admin/AdminAbout'
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="/admin/musicas" element={<AdminSongs />} />
             <Route path="/admin/patrocinadores" element={<AdminSponsors />} />
             <Route path="/admin/configuracoes" element={<AdminSettings />} />
+            <Route path="/admin/sobre" element={<AdminAbout />} />
           </Route>
         </Routes>
       </BrowserRouter>
