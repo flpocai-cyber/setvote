@@ -371,8 +371,44 @@ const AdminDashboard = () => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Quick Links */}
+                            <div className="space-y-3 mt-4">
+                                <Link
+                                    to="/admin/sobre"
+                                    className="flex items-center justify-between glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">
+                                            <UserCircle className="text-gold-500" size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-white group-hover:text-gold-400 transition-colors">Sobre o Músico</p>
+                                            <p className="text-xs text-charcoal-500">Bio e galeria de fotos</p>
+                                        </div>
+                                    </div>
+                                    <ExternalLink className="text-charcoal-600 group-hover:text-gold-500 transition-colors" size={16} />
+                                </Link>
+
+                                <Link
+                                    to="/admin/patrocinadores"
+                                    className="flex items-center justify-between glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">
+                                            <Users className="text-gold-500" size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-white group-hover:text-gold-400 transition-colors">Patrocinadores</p>
+                                            <p className="text-xs text-charcoal-500">Gerenciar logos e links</p>
+                                        </div>
+                                    </div>
+                                    <ExternalLink className="text-charcoal-600 group-hover:text-gold-500 transition-colors" size={16} />
+                                </Link>
+                            </div>
                         </div>
                     </div>
+
                 </div>
             </main>
         </div>
