@@ -21,6 +21,7 @@ const AdminSettings = () => {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [file, setFile] = useState(null)
+    const [previewUrl, setPreviewUrl] = useState(null)
 
     useEffect(() => {
         fetchProfile()
@@ -53,7 +54,9 @@ const AdminSettings = () => {
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0])
+            const selected = e.target.files[0]
+            setFile(selected)
+            setPreviewUrl(URL.createObjectURL(selected))
         }
     }
 
@@ -174,8 +177,8 @@ const AdminSettings = () => {
                                     <div className="flex flex-col md:flex-row gap-8">
                                         <div className="relative group">
                                             <div className="w-32 h-32 rounded-3xl bg-charcoal-800 border-2 border-charcoal-700 overflow-hidden flex items-center justify-center relative">
-                                                {profile.profile_image_url ? (
-                                                    <img src={profile.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
+                                                {(previewUrl || profile.profile_image_url) ? (
+                                                    <img src={previewUrl || profile.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <User className="w-12 h-12 text-charcoal-600" />
                                                 )}
@@ -184,7 +187,9 @@ const AdminSettings = () => {
                                                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                                                 </label>
                                             </div>
-                                            <p className="text-[10px] text-charcoal-500 mt-2 text-center uppercase tracking-wider">Alterar Foto</p>
+                                            <p className="text-[10px] text-charcoal-500 mt-2 text-center uppercase tracking-wider">
+                                                {previewUrl ? '✓ Foto selecionada' : 'Alterar Foto'}
+                                            </p>
                                         </div>
 
                                         <div className="flex-1 space-y-6">
