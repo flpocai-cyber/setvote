@@ -13,6 +13,7 @@ import AdminSongs from './pages/admin/AdminSongs'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminSponsors from './pages/admin/AdminSponsors'
 import AdminAbout from './pages/admin/AdminAbout'
+import AdminEstatisticas from './pages/admin/AdminEstatisticas'
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
             <Route path="/admin/patrocinadores" element={<AdminSponsors />} />
             <Route path="/admin/configuracoes" element={<AdminSettings />} />
             <Route path="/admin/sobre" element={<AdminAbout />} />
+            <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
           </Route>
         </Routes>
       </BrowserRouter>

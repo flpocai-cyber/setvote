@@ -210,4 +210,50 @@ create policy "Public Select About Photos" on storage.objects for select using (
 drop policy if exists "Admin Delete About Photos" on storage.objects;
 create policy "Admin Delete About Photos" on storage.objects for delete using (bucket_id = 'about-photos' and auth.role() = 'authenticated');
 
+-- ==================================================
+-- 17. Shows — tabela de shows finalizados
+-- ==================================================
+
+create table if not exists public.shows (
+  id uuid default gen_random_uuid() primary key,
+  file_key text not null,
+  show_date date not null,
+  venue text not null,
+  city text not null,
+  state text not null,
+  musician_name text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table if not exists public.show_songs (
+  id uuid default gen_random_uuid() primary key,
+  show_id uuid references public.shows(id) on delete cascade,
+  song_title text not null,
+  artist text not null,
+  votes integer default 0,
+  played boolean default false,
+  play_order integer,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.shows enable row level security;
+alter table public.show_songs enable row level security;
+
+drop policy if exists "Public shows are viewable by everyone." on public.shows;
+create policy "Public shows are viewable by everyone." on public.shows
+  for select using (true);
+
+drop policy if exists "Admins can manage shows" on public.shows;
+create policy "Admins can manage shows" on public.shows
+  for all to authenticated using (true) with check (true);
+
+drop policy if exists "Public show_songs are viewable by everyone." on public.show_songs;
+create policy "Public show_songs are viewable by everyone." on public.show_songs
+  for select using (true);
+
+drop policy if exists "Admins can manage show_songs" on public.show_songs;
+create policy "Admins can manage show_songs" on public.show_songs
+  for all to authenticated using (true) with check (true);
+
+
 
