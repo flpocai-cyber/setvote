@@ -16,9 +16,12 @@ const PublicGallery = () => {
     const [fetchError, setFetchError] = useState(null)
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-    const [votedSongId, setVotedSongId] = useState(localStorage.getItem('voted_song_id'))
+    const [selectedSongIds, setSelectedSongIds] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('voted_song_ids') || '[]') } catch { return [] }
+    })
+    const [votesSubmitted, setVotesSubmitted] = useState(() => localStorage.getItem('votes_submitted') === 'true')
     const [selectedSongForLyrics, setSelectedSongForLyrics] = useState(null)
-    const [votingInProgress, setVotingInProgress] = useState(null)
+    const [votingInProgress, setVotingInProgress] = useState(false)
     const [showSponsors, setShowSponsors] = useState(false)
     const [showPix, setShowPix] = useState(false)
     const [showAllSongs, setShowAllSongs] = useState(false)
@@ -59,10 +62,12 @@ const PublicGallery = () => {
             // Comparamos as strings das datas. Se mudou, é um novo show.
             if (dbResetAt && localResetAt !== dbResetAt) {
                 console.log('Reset detectado - Limpando dados locais...')
-                localStorage.removeItem('voted_song_id')
+                localStorage.removeItem('voted_song_ids')
+                localStorage.removeItem('votes_submitted')
                 localStorage.removeItem('vote_session_id')
                 localStorage.setItem('last_reset_at', dbResetAt)
-                setVotedSongId(null)
+                setSelectedSongIds([])
+                setVotesSubmitted(false)
                 window.location.reload()
                 return
             }
@@ -133,10 +138,12 @@ const PublicGallery = () => {
 
                     if (dbResetAt && dbResetAt !== localResetAt) {
                         // Reset via Realtime! Forçamos a limpeza total
-                        localStorage.removeItem('voted_song_id')
+                        localStorage.removeItem('voted_song_ids')
+                        localStorage.removeItem('votes_submitted')
                         localStorage.removeItem('vote_session_id')
                         localStorage.setItem('last_reset_at', dbResetAt)
-                        setVotedSongId(null)
+                        setSelectedSongIds([])
+                        setVotesSubmitted(false)
                         window.location.reload()
                         return
                     }
@@ -146,10 +153,28 @@ const PublicGallery = () => {
             .subscribe()
     }
 
-    const handleVote = async (songId) => {
-        if (votedSongId || !isVotingActive) return
+    const MAX_VOTES = 5
 
-        setVotingInProgress(songId)
+    const handleToggleSelect = (songId) => {
+        if (votesSubmitted || !isVotingActive) return
+        setSelectedSongIds(prev => {
+            if (prev.includes(songId)) {
+                // Desseleciona
+                const updated = prev.filter(id => id !== songId)
+                localStorage.setItem('voted_song_ids', JSON.stringify(updated))
+                return updated
+            }
+            if (prev.length >= MAX_VOTES) return prev // já tem 5, ignora
+            const updated = [...prev, songId]
+            localStorage.setItem('voted_song_ids', JSON.stringify(updated))
+            return updated
+        })
+    }
+
+    const handleSubmitVotes = async () => {
+        if (votesSubmitted || selectedSongIds.length === 0 || votingInProgress) return
+
+        setVotingInProgress(true)
 
         let sessionId = localStorage.getItem('vote_session_id')
         if (!sessionId) {
@@ -157,26 +182,22 @@ const PublicGallery = () => {
             localStorage.setItem('vote_session_id', sessionId)
         }
 
-        const { error: insertError } = await supabase
-            .from('votes')
-            .insert({ song_id: songId, session_id: sessionId })
+        for (const songId of selectedSongIds) {
+            const { error: insertError } = await supabase
+                .from('votes')
+                .insert({ song_id: songId, session_id: sessionId })
 
-        if (insertError) {
-            console.error('Vote storage error:', insertError)
-            alert('Não foi possível registrar seu voto no momento.')
-            setVotingInProgress(null)
-            return
+            if (insertError) {
+                console.error('Vote storage error:', insertError)
+            }
+
+            const { error: rpcError } = await supabase.rpc('increment_vote', { song_id: songId })
+            if (rpcError) console.error('RPC Error:', rpcError)
         }
 
-        const { error: rpcError } = await supabase.rpc('increment_vote', { song_id: songId })
-
-        if (rpcError) {
-            console.error('RPC Error:', rpcError)
-        }
-
-        localStorage.setItem('voted_song_id', songId)
-        setVotedSongId(songId)
-        setVotingInProgress(null)
+        localStorage.setItem('votes_submitted', 'true')
+        setVotesSubmitted(true)
+        setVotingInProgress(false)
     }
 
     const filteredSongs = songs.filter(song =>
@@ -516,84 +537,111 @@ const PublicGallery = () => {
                     />
                 </div>
 
+                {/* Voting counter hint */}
+                {isVotingActive && !votesSubmitted && (
+                    <div className="mb-4 flex items-center justify-between">
+                        <p className="text-xs text-charcoal-500">
+                            {selectedSongIds.length === 0
+                                ? `Selecione até ${MAX_VOTES} músicas para votar`
+                                : `${selectedSongIds.length} de ${MAX_VOTES} músicas selecionadas`}
+                        </p>
+                        {selectedSongIds.length > 0 && selectedSongIds.length < MAX_VOTES && (
+                            <button
+                                onClick={() => { setSelectedSongIds([]); localStorage.setItem('voted_song_ids', '[]') }}
+                                className="text-xs text-charcoal-600 hover:text-charcoal-400 transition-colors"
+                            >
+                                Limpar seleção
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {/* List of Songs */}
                 <div className="space-y-4">
                     <AnimatePresence mode="popLayout">
-                        {filteredSongs.map(song => (
-                            <motion.div
-                                key={song.id}
-                                layout
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`glass p-4 rounded-3xl border transition-all ${votedSongId === song.id
-                                    ? 'border-gold-500 bg-gold-500/[0.03]'
-                                    : 'border-charcoal-800/50 hover:border-charcoal-700'
-                                    }`}
-                            >
-                                <div className="flex items-center space-x-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-charcoal-800 flex-shrink-0 overflow-hidden relative group">
-                                        {song.cover_image_url ? (
-                                            <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center"><Music className="text-charcoal-700" size={20} /></div>
-                                        )}
-                                        <button
-                                            onClick={() => setSelectedSongForLyrics(song)}
-                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Info className="text-white" size={20} />
-                                        </button>
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <h3 className="font-bold text-white truncate group-hover:text-gold-400 transition-colors">{song.title}</h3>
-                                            {song.votes > 0 && (
-                                                <span className="text-[10px] font-black text-gold-500 bg-gold-500/10 px-2 py-0.5 rounded-full">
-                                                    {song.votes} {song.votes === 1 ? 'VOTO' : 'VOTOS'}
-                                                </span>
+                        {filteredSongs.map(song => {
+                            const isSelected = selectedSongIds.includes(song.id)
+                            const canSelect = !votesSubmitted && isVotingActive && (isSelected || selectedSongIds.length < MAX_VOTES)
+                            return (
+                                <motion.div
+                                    key={song.id}
+                                    layout
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`glass p-4 rounded-3xl border transition-all ${isSelected
+                                            ? 'border-gold-500 bg-gold-500/[0.04]'
+                                            : votesSubmitted
+                                                ? 'border-charcoal-800/50 opacity-60'
+                                                : 'border-charcoal-800/50 hover:border-charcoal-700'
+                                        }`}
+                                >
+                                    <div className="flex items-center space-x-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-charcoal-800 flex-shrink-0 overflow-hidden relative group">
+                                            {song.cover_image_url ? (
+                                                <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center"><Music className="text-charcoal-700" size={20} /></div>
                                             )}
-                                        </div>
-                                        <p className="text-xs text-charcoal-400 truncate mt-0.5">{song.artist}</p>
-
-                                        <div className="mt-3 flex items-center space-x-3">
-                                            <button
-                                                onClick={() => handleVote(song.id)}
-                                                disabled={!!votedSongId || !isVotingActive}
-                                                className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-black transition-all ${votedSongId === song.id
-                                                    ? 'bg-gold-500 text-charcoal-950 shadow-lg shadow-gold-500/20'
-                                                    : votedSongId
-                                                        ? 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-50'
-                                                        : 'bg-charcoal-800 text-charcoal-200 hover:bg-gold-500/10 hover:text-gold-400'
-                                                    }`}
-                                            >
-                                                {votingInProgress === song.id ? (
-                                                    <Loader2 className="animate-spin w-4 h-4" />
-                                                ) : votedSongId === song.id ? (
-                                                    <>
-                                                        <Heart size={14} fill="currentColor" />
-                                                        <span>ESCOLHIDO!</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Star size={14} />
-                                                        <span>VOTAR NESSA</span>
-                                                    </>
-                                                )}
-                                            </button>
-
                                             <button
                                                 onClick={() => setSelectedSongForLyrics(song)}
-                                                className="p-2.5 rounded-xl bg-charcoal-900 border border-charcoal-800 text-charcoal-400 hover:text-white transition-colors flex-shrink-0"
-                                                title="Ver Letra"
+                                                className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
-                                                <Info size={18} />
+                                                <Info className="text-white" size={20} />
                                             </button>
                                         </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className="font-bold text-white truncate">{song.title}</h3>
+                                                {song.votes > 0 && (
+                                                    <span className="text-[10px] font-black text-gold-500 bg-gold-500/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                                                        {song.votes} {song.votes === 1 ? 'VOTO' : 'VOTOS'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-charcoal-400 truncate mt-0.5">{song.artist}</p>
+
+                                            <div className="mt-3 flex items-center space-x-3">
+                                                <button
+                                                    onClick={() => handleToggleSelect(song.id)}
+                                                    disabled={!canSelect && !isSelected}
+                                                    className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-black transition-all ${votesSubmitted
+                                                            ? isSelected
+                                                                ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30 cursor-default'
+                                                                : 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
+                                                            : isSelected
+                                                                ? 'bg-gold-500 text-charcoal-950 shadow-lg shadow-gold-500/20 hover:bg-gold-400'
+                                                                : !canSelect
+                                                                    ? 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
+                                                                    : 'bg-charcoal-800 text-charcoal-200 hover:bg-gold-500/10 hover:text-gold-400'
+                                                        }`}
+                                                >
+                                                    {isSelected ? (
+                                                        <>
+                                                            <Heart size={14} fill="currentColor" />
+                                                            <span>{votesSubmitted ? 'VOTADO' : 'SELECIONADO ✕'}</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Star size={14} />
+                                                            <span>VOTAR NESSA</span>
+                                                        </>
+                                                    )}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setSelectedSongForLyrics(song)}
+                                                    className="p-2.5 rounded-xl bg-charcoal-900 border border-charcoal-800 text-charcoal-400 hover:text-white transition-colors flex-shrink-0"
+                                                    title="Ver Letra"
+                                                >
+                                                    <Info size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))}
+                                </motion.div>
+                            )
+                        })}
                     </AnimatePresence>
 
                     {filteredSongs.length === 0 && !loading && (
@@ -606,24 +654,52 @@ const PublicGallery = () => {
             </main>
 
             {/* Footer / Branding */}
-            <footer className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-charcoal-950 to-transparent pointer-events-none">
-                <div className="max-w-2xl mx-auto flex flex-col items-center">
-                    {votedSongId && (
+            <footer className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-charcoal-950 via-charcoal-950/80 to-transparent pointer-events-none">
+                <div className="max-w-2xl mx-auto flex flex-col items-center gap-3">
+                    {/* Submit Button */}
+                    {isVotingActive && !votesSubmitted && selectedSongIds.length > 0 && (
+                        <motion.button
+                            initial={{ scale: 0.9, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={handleSubmitVotes}
+                            disabled={votingInProgress}
+                            className={`pointer-events-auto w-full max-w-sm py-4 rounded-2xl font-black text-sm flex items-center justify-center space-x-2 transition-all shadow-2xl ${selectedSongIds.length === MAX_VOTES
+                                    ? 'gold-bg-gradient text-charcoal-950 shadow-gold-500/30'
+                                    : 'bg-charcoal-800 text-charcoal-200 border border-charcoal-700 shadow-black/40'
+                                }`}
+                        >
+                            {votingInProgress ? (
+                                <><Loader2 className="animate-spin" size={18} /><span>Enviando votos...</span></>
+                            ) : (
+                                <>
+                                    <CheckCircle2 size={18} />
+                                    <span>
+                                        {selectedSongIds.length === MAX_VOTES
+                                            ? `Enviar ${MAX_VOTES} Votos ✓`
+                                            : `Enviar ${selectedSongIds.length} Voto${selectedSongIds.length > 1 ? 's' : ''}`}
+                                    </span>
+                                </>
+                            )}
+                        </motion.button>
+                    )}
+
+                    {/* Submitted confirmation */}
+                    {votesSubmitted && (
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="bg-gold-500 text-charcoal-950 px-6 py-3 rounded-full font-bold shadow-2xl shadow-gold-500/20 mb-4 flex items-center space-x-2 pointer-events-auto"
+                            className="bg-gold-500 text-charcoal-950 px-6 py-3 rounded-full font-bold shadow-2xl shadow-gold-500/20 flex items-center space-x-2 pointer-events-auto"
                         >
                             <CheckCircle2 size={18} />
-                            <span>Voto registrado! Obrigado por participar 🎶</span>
+                            <span>Votos enviados! Obrigado por participar 🎶</span>
                         </motion.div>
                     )}
+
                     <div className="text-[10px] text-charcoal-600 uppercase tracking-[0.2em] font-black">
                         Powered by SetVote
                     </div>
-
-
-
                 </div>
             </footer>
 
