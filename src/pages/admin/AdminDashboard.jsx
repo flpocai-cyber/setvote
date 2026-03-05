@@ -5,7 +5,7 @@ import {
     Trophy, CheckCircle2, ListMusic, Music, LayoutDashboard,
     Settings, LogOut, RefreshCcw, Eye, Play, History,
     ExternalLink, FileText, Users, UserCircle, CalendarPlus,
-    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2
+    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ShowRegistrationModal from '../../components/admin/ShowRegistrationModal'
@@ -70,7 +70,7 @@ const AdminDashboard = () => {
             .subscribe()
     }
 
-    const markAsPlayed = async (song) => {
+    const markAsPlayed = async (song, openSheet = true) => {
         const play_order = songs.filter(s => s.played).length + 1
         const { error } = await supabase
             .from('songs')
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
         if (error) {
             alert('Erro ao marcar como tocada')
         } else {
-            if (song.sheet_music_url) window.open(song.sheet_music_url, '_blank')
+            if (openSheet && song.sheet_music_url) window.open(song.sheet_music_url, '_blank')
         }
     }
 
@@ -348,6 +348,14 @@ const AdminDashboard = () => {
                                                         <span>Ver Partitura</span>
                                                     </a>
                                                 )}
+
+                                                <button
+                                                    onClick={() => markAsPlayed(topSong, false)}
+                                                    className="px-8 py-3 bg-charcoal-800 text-charcoal-300 border border-charcoal-700 rounded-2xl flex items-center justify-center space-x-3 hover:text-white hover:bg-charcoal-700 transition-all font-bold text-sm mt-1"
+                                                >
+                                                    <SkipForward size={18} />
+                                                    <span>Próxima</span>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
