@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
     BarChart2, Music, LayoutDashboard, Settings, LogOut,
-    Trophy, MapPin, CalendarDays, Mic2, FileDown, Share2, ChevronUp, ChevronDown
+    Trophy, MapPin, CalendarDays, Mic2, FileDown, Share2, ChevronUp, ChevronDown,
+    Users, UserCircle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import jsPDF from 'jspdf'
