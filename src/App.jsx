@@ -14,6 +14,8 @@ import AdminSettings from './pages/admin/AdminSettings'
 import AdminSponsors from './pages/admin/AdminSponsors'
 import AdminAbout from './pages/admin/AdminAbout'
 import AdminEstatisticas from './pages/admin/AdminEstatisticas'
+import AdminShareLink from './pages/admin/AdminShareLink'
+import MusicianSetlist from './pages/public/MusicianSetlist'
 
 function App() {
   return (
@@ -23,6 +25,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<PublicGallery />} />
           <Route path="/votar" element={<PublicGallery />} />
+          <Route path="/setlist/:token" element={<MusicianSetlist />} />
 
           {/* Admin Login */}
           <Route path="/admin" element={<AdminLogin />} />
@@ -35,6 +38,7 @@ function App() {
             <Route path="/admin/configuracoes" element={<AdminSettings />} />
             <Route path="/admin/sobre" element={<AdminAbout />} />
             <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
+            <Route path="/admin/link-musicos" element={<AdminShareLink />} />
           </Route>
         </Routes>
       </BrowserRouter>

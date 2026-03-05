@@ -142,6 +142,10 @@ const AdminSettings = () => {
                         <BarChart2 size={20} />
                         <span>Estatísticas</span>
                     </Link>
+                    <Link to="/admin/link-musicos" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <Share2 size={20} />
+                        <span>Link para Músicos</span>
+                    </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-gold-500 bg-gold-500/10 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />
                         <span>Configurações</span>

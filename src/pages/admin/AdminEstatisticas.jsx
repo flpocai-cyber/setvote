@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
     BarChart2, Music, LayoutDashboard, Settings, LogOut,
-    Users, UserCircle, ChevronDown, ChevronUp, Download,
-    Trophy, MapPin, CalendarDays, Mic2, FileDown
+    Trophy, MapPin, CalendarDays, Mic2, FileDown, Share2
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import jsPDF from 'jspdf'
@@ -156,6 +155,7 @@ const AdminEstatisticas = () => {
                     {sidebarLink('/admin/patrocinadores', <Users size={20} />, 'Patrocinadores')}
                     {sidebarLink('/admin/sobre', <UserCircle size={20} />, 'Sobre o Músico')}
                     {sidebarLink('/admin/estatisticas', <BarChart2 size={20} />, 'Estatísticas', true)}
+                    {sidebarLink('/admin/link-musicos', <Share2 size={20} />, 'Link para Músicos')}
                     {sidebarLink('/admin/configuracoes', <Settings size={20} />, 'Configurações')}
                 </nav>
                 <div className="p-4 mt-auto">
