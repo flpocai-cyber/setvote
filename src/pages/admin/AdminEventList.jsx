@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowLeft, CheckCircle2, History } from 'lucide-react'
+import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowLeft, CheckCircle2, History, Play } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const AdminEventList = () => {
@@ -112,6 +112,51 @@ const AdminEventList = () => {
         )
     }
 
+    const handleStartShow = async () => {
+        if (!window.confirm('Tem certeza que deseja exportar esses votos para o seu Dashboard principal e iniciar um Show agora?\n\nIsso substituirá a setlist ao vivo atual e zerará os votos anteriores da tela inicial.')) {
+            return
+        }
+
+        try {
+            setLoading(true)
+            // 1. Zera todos os votos globais do repertoire
+            await supabase
+                .from('songs')
+                .update({ votes: 0, played: false, play_order: null })
+                .neq('id', '00000000-0000-0000-0000-000000000000')
+
+            // 2. Aplica os votos deste evento nas músicas correspondentes
+            const votedSongs = songs.filter(song => votes[song.id] > 0)
+            const updatePromises = votedSongs.map(song =>
+                supabase
+                    .from('songs')
+                    .update({ votes: votes[song.id] })
+                    .eq('id', song.id)
+            )
+            await Promise.all(updatePromises)
+
+            // 3. Cadastra o Show Ativo no LocalStorage
+            const fileKey = `${event.title.replace(/\s+/g, '').substring(0, 10).toUpperCase()}-EVENTO`
+            const activeShow = {
+                show_date: event.event_date.split('T')[0],
+                venue: event.venue || 'Evento',
+                city: '',
+                state: '',
+                musician_name: '',
+                file_key: fileKey
+            }
+            localStorage.setItem('activeShow', JSON.stringify(activeShow))
+
+            // 4. Redireciona para o Dashboard
+            navigate('/admin/dashboard')
+
+        } catch (error) {
+            console.error('Erro ao iniciar show:', error)
+            alert('Erro ao iniciar show: ' + error.message)
+            setLoading(false)
+        }
+    }
+
     const formatDate = (dateString) => {
         const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
         return new Date(dateString).toLocaleDateString('pt-BR', options).replace(',', ' as')
@@ -157,8 +202,24 @@ const AdminEventList = () => {
                             </div>
                         </div>
                     </div>
+
+                    <button
+                        onClick={handleStartShow}
+                        className="hidden md:flex items-center space-x-2 px-6 py-2.5 gold-bg-gradient text-charcoal-950 rounded-xl font-bold shadow-lg shadow-gold-500/20 hover:scale-[1.02] transition-all"
+                    >
+                        <Play size={18} fill="currentColor" />
+                        <span>Iniciar Show no Dashboard</span>
+                    </button>
                 </div>
             </div>
+
+            {/* Float button for mobile */}
+            <button
+                onClick={handleStartShow}
+                className="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full gold-bg-gradient text-charcoal-950 flex items-center justify-center shadow-lg shadow-gold-500/30 active:scale-95 transition-all"
+            >
+                <Play size={24} fill="currentColor" className="ml-1" />
+            </button>
 
             {/* Conteúdo Principal */}
             <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 overflow-y-auto">
