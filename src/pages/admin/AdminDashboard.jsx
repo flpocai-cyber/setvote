@@ -20,6 +20,7 @@ const AdminDashboard = () => {
 
     // Active show state (persisted to localStorage)
     const [showModalOpen, setShowModalOpen] = useState(false)
+    const [futureEvents, setFutureEvents] = useState([]) // added
     const [activeShow, setActiveShow] = useState(() => {
         try { return JSON.parse(localStorage.getItem('activeShow')) || null } catch { return null }
     })
@@ -47,6 +48,25 @@ const AdminDashboard = () => {
             setFetchError(error.message)
         } else {
             setSongs(data)
+        }
+
+        // Busca eventos futuros (max 3 mais próximos a partir de hoje)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            const today = new Date().toISOString()
+            const { data: eventsData, error: eventsError } = await supabase
+                .from('future_events')
+                .select('*')
+                .eq('user_id', user.id)
+                .gte('event_date', today)
+                .order('event_date', { ascending: true })
+                .limit(3)
+
+            if (eventsError) {
+                console.error("Error fetching future events:", eventsError)
+            } else if (eventsData) {
+                setFutureEvents(eventsData)
+            }
         }
         setLoading(false)
     }
@@ -219,6 +239,10 @@ const AdminDashboard = () => {
                     <Link to="/admin/link-musicos" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Share2 size={20} />
                         <span>Link para Músicos</span>
+                    </Link>
+                    <Link to="/admin/eventos-futuros" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <CalendarDays size={20} />
+                        <span>Eventos Futuros</span>
                     </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />
@@ -473,6 +497,28 @@ const AdminDashboard = () => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Próximos Eventos */}
+                            {futureEvents.length > 0 && (
+                                <div className="space-y-3 mt-4">
+                                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
+                                        <CalendarDays size={16} className="text-gold-500" /> Próximos Eventos
+                                    </h3>
+                                    {futureEvents.map(event => (
+                                        <Link
+                                            key={event.id}
+                                            to="/admin/eventos-futuros"
+                                            className="block glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all"
+                                        >
+                                            <div className="font-bold text-white text-sm mb-1 truncate group-hover:text-gold-400">{event.title}</div>
+                                            <div className="flex items-center gap-4 text-xs text-charcoal-400">
+                                                <span className="flex items-center gap-1"><CalendarDays size={12} /> {new Date(event.event_date).toLocaleDateString('pt-BR')}</span>
+                                                {event.venue && <span className="flex items-center gap-1 truncate"><MapPin size={12} /> {event.venue}</span>}
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Quick Links */}
                             <div className="space-y-3 mt-4">

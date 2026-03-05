@@ -156,6 +156,7 @@ const AdminEstatisticas = () => {
                     {sidebarLink('/admin/sobre', <UserCircle size={20} />, 'Sobre o Músico')}
                     {sidebarLink('/admin/estatisticas', <BarChart2 size={20} />, 'Estatísticas', true)}
                     {sidebarLink('/admin/link-musicos', <Share2 size={20} />, 'Link para Músicos')}
+                    {sidebarLink('/admin/eventos-futuros', <CalendarDays size={20} />, 'Eventos Futuros')}
                     {sidebarLink('/admin/configuracoes', <Settings size={20} />, 'Configurações')}
                 </nav>
                 <div className="p-4 mt-auto">

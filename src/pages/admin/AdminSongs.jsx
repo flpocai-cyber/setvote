@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
     Plus, Search, Edit2, Trash2, Eye,
     Music, FileText, LayoutDashboard, Settings,
-    LogOut, ChevronRight, CheckCircle2, XCircle, Users, UserCircle, BarChart2, Share2
+    LogOut, ChevronRight, CheckCircle2, XCircle, Users, UserCircle, BarChart2, Trophy, Share2, CalendarDays
 } from 'lucide-react'
 import SongModal from '../../components/admin/SongModal'
 
@@ -104,6 +104,9 @@ const AdminSongs = () => {
                     </Link>
                     <Link to="/admin/link-musicos" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Share2 size={20} /><span>Link para Músicos</span>
+                    </Link>
+                    <Link to="/admin/eventos-futuros" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <CalendarDays size={20} /><span>Eventos Futuros</span>
                     </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />

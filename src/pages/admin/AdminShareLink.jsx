@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
     Music, LayoutDashboard, Settings, LogOut,
     Users, UserCircle, BarChart2, Share2, Copy,
-    RefreshCw, Trash2, Eye, Link as LinkIcon
+    RefreshCw, Trash2, Eye, Link as LinkIcon, CalendarDays
 } from 'lucide-react'
 
 // Utilizar a mesma chave do localStorage que usamos na página pública
@@ -94,6 +94,10 @@ const AdminShareLink = () => {
                         <Share2 size={20} />
                         <span>Link para Músicos</span>
                     </Link>
+                    <Link to="/admin/eventos-futuros" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <CalendarDays size={20} />
+                        <span>Eventos Futuros</span>
+                    </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />
                         <span>Configurações</span>
@@ -152,8 +156,8 @@ const AdminShareLink = () => {
                                             <button
                                                 onClick={copyLink}
                                                 className={`px-6 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 shrink-0 ${copied
-                                                        ? 'bg-green-500/20 text-green-400'
-                                                        : 'gold-bg-gradient text-charcoal-950 hover:opacity-90'
+                                                    ? 'bg-green-500/20 text-green-400'
+                                                    : 'gold-bg-gradient text-charcoal-950 hover:opacity-90'
                                                     }`}
                                             >
                                                 <Copy size={16} />

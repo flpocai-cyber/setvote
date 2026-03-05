@@ -15,7 +15,9 @@ import AdminSponsors from './pages/admin/AdminSponsors'
 import AdminAbout from './pages/admin/AdminAbout'
 import AdminEstatisticas from './pages/admin/AdminEstatisticas'
 import AdminShareLink from './pages/admin/AdminShareLink'
+import AdminFutureEvents from './pages/admin/AdminFutureEvents'
 import MusicianSetlist from './pages/public/MusicianSetlist'
+import PublicEventVoting from './pages/public/PublicEventVoting'
 
 function App() {
   return (
@@ -26,6 +28,7 @@ function App() {
           <Route path="/" element={<PublicGallery />} />
           <Route path="/votar" element={<PublicGallery />} />
           <Route path="/setlist/:token" element={<MusicianSetlist />} />
+          <Route path="/evento/:token" element={<PublicEventVoting />} />
 
           {/* Admin Login */}
           <Route path="/admin" element={<AdminLogin />} />
@@ -39,6 +42,7 @@ function App() {
             <Route path="/admin/sobre" element={<AdminAbout />} />
             <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
             <Route path="/admin/link-musicos" element={<AdminShareLink />} />
+            <Route path="/admin/eventos-futuros" element={<AdminFutureEvents />} />
           </Route>
         </Routes>
       </BrowserRouter>

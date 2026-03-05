@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
     Settings, User, QrCode, Music, LayoutDashboard,
-    LogOut, Save, Loader2, Camera, Share2, Download, Users, CreditCard, UserCircle, BarChart2
+    LogOut, Save, Music, LayoutDashboard, Settings, LogOut, Loader2, Save, Users, UserCircle, BarChart2, Share2, CalendarDays
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -145,6 +145,10 @@ const AdminSettings = () => {
                     <Link to="/admin/link-musicos" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
                         <Share2 size={20} />
                         <span>Link para Músicos</span>
+                    </Link>
+                    <Link to="/admin/eventos-futuros" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
+                        <CalendarDays size={20} />
+                        <span>Eventos Futuros</span>
                     </Link>
                     <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-gold-500 bg-gold-500/10 px-4 py-3 rounded-xl transition-all">
                         <Settings size={20} />
