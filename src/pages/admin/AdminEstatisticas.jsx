@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
     BarChart2, Music, LayoutDashboard, Settings, LogOut,
     Trophy, MapPin, CalendarDays, Mic2, FileDown, Share2, ChevronUp, ChevronDown,
-    Users, UserCircle
+    Users, UserCircle, Trash2, Edit2, X, Save, Loader2
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import jsPDF from 'jspdf'
@@ -15,6 +15,17 @@ const AdminEstatisticas = () => {
     const [loading, setLoading] = useState(true)
     const [expandedShow, setExpandedShow] = useState(null)
     const [showSongs, setShowSongs] = useState({}) // showId -> songs[]
+
+    // Edit state
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [editingShow, setEditingShow] = useState(null)
+    const [isSaving, setIsSaving] = useState(false)
+
+    const UF_LIST = [
+        'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+        'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+        'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+    ]
 
     useEffect(() => {
         fetchShows()
@@ -51,8 +62,72 @@ const AdminEstatisticas = () => {
     }
 
     const formatDate = (dateStr) => {
+        if (!dateStr) return ''
         const [y, m, d] = dateStr.split('-')
         return `${d}/${m}/${y}`
+    }
+
+    const handleDelete = async (show) => {
+        if (!window.confirm(`Tem certeza que deseja excluir permanentemente o show "${show.file_key}"?\n\nEsta ação excluirá também todo o histórico de músicas tocadas neste dia e não pode ser desfeita.`)) {
+            return
+        }
+
+        try {
+            const { error } = await supabase
+                .from('shows')
+                .delete()
+                .eq('id', show.id)
+
+            if (error) throw error
+
+            setShows(prev => prev.filter(s => s.id !== show.id))
+            alert('Show excluído com sucesso.')
+        } catch (err) {
+            console.error(err)
+            alert('Erro ao excluir show: ' + err.message)
+        }
+    }
+
+    const handleEditOpen = (show) => {
+        setEditingShow({ ...show })
+        setIsEditModalOpen(true)
+    }
+
+    const handleUpdateShow = async (e) => {
+        e.preventDefault()
+        setIsSaving(true)
+
+        try {
+            // Recalcula o file_key se a data ou venue mudou
+            const venuePart = editingShow.venue.replace(/\s+/g, '').substring(0, 10).toUpperCase()
+            const [y, m, d] = editingShow.show_date.split('-')
+            const newFileKey = `${venuePart}-${d}-${m}-${y.slice(2)}`
+
+            const { error } = await supabase
+                .from('shows')
+                .update({
+                    show_date: editingShow.show_date,
+                    venue: editingShow.venue,
+                    city: editingShow.city,
+                    state: editingShow.state,
+                    musician_name: editingShow.musician_name,
+                    file_key: newFileKey
+                })
+                .eq('id', editingShow.id)
+
+            if (error) throw error
+
+            setShows(prev => prev.map(s =>
+                s.id === editingShow.id ? { ...editingShow, file_key: newFileKey } : s
+            ))
+            setIsEditModalOpen(false)
+            alert('Show atualizado com sucesso.')
+        } catch (err) {
+            console.error(err)
+            alert('Erro ao atualizar show: ' + err.message)
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const exportPDF = (show) => {
@@ -267,10 +342,28 @@ const AdminEstatisticas = () => {
                                                         className="flex items-center gap-2 px-4 py-2 bg-gold-500/10 hover:bg-gold-500/20 text-gold-500 rounded-xl text-sm font-medium transition-all"
                                                     >
                                                         <FileDown size={15} />
-                                                        Exportar PDF
+                                                        <span className="hidden sm:inline">Exportar PDF</span>
                                                     </button>
                                                 )}
-                                                <div className="text-charcoal-400">
+
+                                                <div className="flex items-center border-l border-charcoal-800 ml-2 pl-2 gap-1">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEditOpen(show) }}
+                                                        className="w-10 h-10 rounded-xl hover:bg-gold-500/10 text-charcoal-500 hover:text-gold-500 flex items-center justify-center transition-all"
+                                                        title="Editar Show"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(show) }}
+                                                        className="w-10 h-10 rounded-xl hover:bg-red-500/10 text-charcoal-500 hover:text-red-500 flex items-center justify-center transition-all"
+                                                        title="Excluir Show"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="text-charcoal-400 ml-2">
                                                     {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                                 </div>
                                             </div>
@@ -339,6 +432,123 @@ const AdminEstatisticas = () => {
                     )}
                 </div>
             </main>
+
+            {/* Edit Modal */}
+            <AnimatePresence>
+                {isEditModalOpen && editingShow && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                            onClick={() => !isSaving && setIsEditModalOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                            className="relative w-full max-w-lg bg-charcoal-900 border border-charcoal-800 rounded-3xl shadow-2xl overflow-hidden"
+                        >
+                            <div className="p-8">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-display font-bold text-white flex items-center gap-3">
+                                        <Edit2 className="text-gold-500" size={24} />
+                                        Editar Show
+                                    </h2>
+                                    <button
+                                        onClick={() => setIsEditModalOpen(false)}
+                                        className="text-charcoal-500 hover:text-white transition-colors"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleUpdateShow} className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-charcoal-400 uppercase tracking-widest mb-2">Data do Show</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={editingShow.show_date}
+                                            onChange={(e) => setEditingShow({ ...editingShow, show_date: e.target.value })}
+                                            className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500 transition-colors"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-charcoal-400 uppercase tracking-widest mb-2">Nome do Músico / Banda</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editingShow.musician_name}
+                                            onChange={(e) => setEditingShow({ ...editingShow, musician_name: e.target.value })}
+                                            className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500 transition-colors"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-charcoal-400 uppercase tracking-widest mb-2">Local / Estabelecimento</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editingShow.venue}
+                                            onChange={(e) => setEditingShow({ ...editingShow, venue: e.target.value })}
+                                            className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500 transition-colors"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-charcoal-400 uppercase tracking-widest mb-2">Cidade</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={editingShow.city}
+                                                onChange={(e) => setEditingShow({ ...editingShow, city: e.target.value })}
+                                                className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-charcoal-400 uppercase tracking-widest mb-2">Estado</label>
+                                            <select
+                                                required
+                                                value={editingShow.state}
+                                                onChange={(e) => setEditingShow({ ...editingShow, state: e.target.value })}
+                                                className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500 transition-colors"
+                                            >
+                                                {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 mt-8">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditModalOpen(false)}
+                                            className="flex-1 px-6 py-3 border border-charcoal-700 text-charcoal-400 hover:text-white rounded-xl transition-all font-bold"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSaving}
+                                            className="flex-1 gold-bg-gradient text-charcoal-950 font-bold px-6 py-3 rounded-xl shadow-lg shadow-gold-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isSaving ? (
+                                                <Loader2 className="animate-spin" size={20} />
+                                            ) : (
+                                                <Save size={20} />
+                                            )}
+                                            {isSaving ? 'Salvando...' : 'Salvar'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }
