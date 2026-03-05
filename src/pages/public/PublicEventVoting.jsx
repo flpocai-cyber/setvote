@@ -27,7 +27,7 @@ const PublicEventVoting = () => {
             // 1. Fetch Event Profile
             const { data: eventData, error: eventError } = await supabase
                 .from('future_events')
-                .select('*, user:user_id(id)') // To get the user_id context
+                .select('*')
                 .eq('token', token)
                 .eq('is_active', true)
                 .single()
@@ -249,8 +249,8 @@ const PublicEventVoting = () => {
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ duration: 0.2 }}
                                     className={`relative overflow-hidden rounded-2xl border transition-all ${isTop3
-                                            ? 'bg-gradient-to-r from-gold-500/10 to-transparent border-gold-500/30'
-                                            : 'bg-charcoal-900/50 border-charcoal-800/50 hover:border-charcoal-700'
+                                        ? 'bg-gradient-to-r from-gold-500/10 to-transparent border-gold-500/30'
+                                        : 'bg-charcoal-900/50 border-charcoal-800/50 hover:border-charcoal-700'
                                         }`}
                                 >
                                     <div className="p-4 sm:p-5 flex items-center gap-4">
