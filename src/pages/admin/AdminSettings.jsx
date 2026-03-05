@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
     Settings, User, QrCode, Music, LayoutDashboard,
-    LogOut, Save, Music, LayoutDashboard, Settings, LogOut, Loader2, Save, Users, UserCircle, BarChart2, Share2, CalendarDays
+    LogOut, Save, Loader2, Camera, Download, Users,
+    CreditCard, UserCircle, BarChart2, Share2, CalendarDays
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
