@@ -44,7 +44,6 @@ const PublicEventVoting = () => {
             const { data: songsData, error: songsError } = await supabase
                 .from('songs')
                 .select('*')
-                .eq('user_id', eventData.user_id)
                 .eq('is_active', true)
                 .order('title', { ascending: true })
 
