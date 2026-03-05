@@ -106,28 +106,22 @@ const PublicEventVoting = () => {
         setVotingInProgress(true)
 
         try {
-            // Verifica se a música já tem registro
-            const { data: existingVote } = await supabase
-                .from('future_event_votes')
-                .select('id, votes')
-                .eq('event_id', event.id)
-                .eq('song_id', songId)
-                .maybeSingle()
+            // Em vez de verificar e depois atualizar (o que pode falhar no RLS anon para Select),
+            // Fazemos um Upsert cego baseado na soma do que já temos em memória.
+            const currentVotes = votes[songId] || 0
 
-            if (existingVote) {
-                await supabase
-                    .from('future_event_votes')
-                    .update({ votes: existingVote.votes + 1 })
-                    .eq('id', existingVote.id)
-            } else {
-                await supabase
-                    .from('future_event_votes')
-                    .insert({
+            const { error } = await supabase
+                .from('future_event_votes')
+                .upsert(
+                    {
                         event_id: event.id,
                         song_id: songId,
-                        votes: 1
-                    })
-            }
+                        votes: currentVotes + 1
+                    },
+                    { onConflict: 'event_id,song_id' }
+                )
+
+            if (error) throw error
 
             // O realtime vai atualizar o valor na tela de todo mundo que está acessando
         } catch (error) {
