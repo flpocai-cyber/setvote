@@ -302,13 +302,22 @@ const AdminFutureEvents = () => {
                                     </div>
 
                                     <div className="flex items-center gap-3">
+                                        <Link
+                                            to={`/admin/evento/${event.token}`}
+                                            className="hidden sm:flex items-center space-x-2 px-6 py-2.5 gold-bg-gradient text-charcoal-950 rounded-xl font-bold shadow-lg shadow-gold-500/20 hover:scale-[1.02] transition-all"
+                                            title="Gerenciar Playlist do Show"
+                                        >
+                                            <Music size={16} />
+                                            <span>Mesa do Show</span>
+                                        </Link>
+
                                         <button
                                             onClick={() => copyLink(event.token)}
                                             className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2.5 bg-gold-500/10 hover:bg-gold-500/20 text-gold-500 rounded-xl transition-colors text-sm font-semibold"
-                                            title="Copiar Link de Votação"
+                                            title="Copiar Link de Votação Público"
                                         >
                                             {copiedToken === event.token ? <Check size={16} /> : <Copy size={16} />}
-                                            <span>{copiedToken === event.token ? 'Copiado' : 'Link'}</span>
+                                            <span className="hidden lg:inline">{copiedToken === event.token ? 'Copiado' : 'Link de Votos'}</span>
                                         </button>
 
                                         <button

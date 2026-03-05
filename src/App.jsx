@@ -16,6 +16,7 @@ import AdminAbout from './pages/admin/AdminAbout'
 import AdminEstatisticas from './pages/admin/AdminEstatisticas'
 import AdminShareLink from './pages/admin/AdminShareLink'
 import AdminFutureEvents from './pages/admin/AdminFutureEvents'
+import AdminEventList from './pages/admin/AdminEventList'
 import MusicianSetlist from './pages/public/MusicianSetlist'
 import PublicEventVoting from './pages/public/PublicEventVoting'
 
@@ -43,6 +44,7 @@ function App() {
             <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
             <Route path="/admin/link-musicos" element={<AdminShareLink />} />
             <Route path="/admin/eventos-futuros" element={<AdminFutureEvents />} />
+            <Route path="/admin/evento/:token" element={<AdminEventList />} />
           </Route>
         </Routes>
       </BrowserRouter>
