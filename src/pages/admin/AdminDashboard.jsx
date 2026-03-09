@@ -5,7 +5,7 @@ import {
     Trophy, CheckCircle2, ListMusic, Music, LayoutDashboard,
     Settings, LogOut, RefreshCcw, Eye, Play, History,
     ExternalLink, FileText, Users, UserCircle, CalendarPlus,
-    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward
+    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ShowRegistrationModal from '../../components/admin/ShowRegistrationModal'
@@ -24,6 +24,19 @@ const AdminDashboard = () => {
     const [activeShow, setActiveShow] = useState(() => {
         try { return JSON.parse(localStorage.getItem('activeShow')) || null } catch { return null }
     })
+
+    // Playback state
+    const [playingId, setPlayingId] = useState(null)
+    const [audioRef, setAudioRef] = useState(null)
+
+    useEffect(() => {
+        return () => {
+            if (audioRef) {
+                audioRef.pause()
+                audioRef.src = ''
+            }
+        }
+    }, [audioRef])
 
     useEffect(() => {
         fetchSongs()
@@ -101,6 +114,37 @@ const AdminDashboard = () => {
             alert('Erro ao marcar como tocada')
         } else {
             if (openSheet && song.sheet_music_url) window.open(song.sheet_music_url, '_blank')
+        }
+    }
+
+    const handlePlayback = (song) => {
+        if (!song.playback_url) return
+
+        if (playingId === song.id) {
+            // Stop current
+            if (audioRef) {
+                audioRef.pause()
+                audioRef.src = ''
+            }
+            setPlayingId(null)
+            setAudioRef(null)
+        } else {
+            // Stop existing if any
+            if (audioRef) {
+                audioRef.pause()
+                audioRef.src = ''
+            }
+            // Start new
+            const newAudio = new Audio(song.playback_url)
+            newAudio.play().catch(e => console.error("Playback error", e))
+
+            newAudio.onended = () => {
+                setPlayingId(null)
+                setAudioRef(null)
+            }
+
+            setAudioRef(newAudio)
+            setPlayingId(song.id)
         }
     }
 
@@ -373,6 +417,25 @@ const AdminDashboard = () => {
                                                     </a>
                                                 )}
 
+                                                {topSong.playback_url && (
+                                                    <button
+                                                        onClick={() => handlePlayback(topSong)}
+                                                        className="px-8 py-3 bg-charcoal-800 text-blue-400 border border-blue-500/30 rounded-2xl flex items-center justify-center space-x-3 hover:bg-blue-500/10 transition-all font-bold text-sm mt-1"
+                                                    >
+                                                        {playingId === topSong.id ? (
+                                                            <>
+                                                                <Pause size={18} />
+                                                                <span>Parar Playback</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Headphones size={18} />
+                                                                <span>Playback</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
+
                                                 <button
                                                     onClick={() => markAsPlayed(topSong, false)}
                                                     className="px-8 py-3 bg-charcoal-800 text-charcoal-300 border border-charcoal-700 rounded-2xl flex items-center justify-center space-x-3 hover:text-white hover:bg-charcoal-700 transition-all font-bold text-sm mt-1"
@@ -436,6 +499,18 @@ const AdminDashboard = () => {
                                                         >
                                                             <FileText size={18} />
                                                         </a>
+                                                    )}
+                                                    {song.playback_url && (
+                                                        <button
+                                                            onClick={() => handlePlayback(song)}
+                                                            className={`bg-charcoal-800 p-3 rounded-xl transition-all ${playingId === song.id
+                                                                    ? 'text-blue-500 hover:bg-blue-500/10'
+                                                                    : 'text-charcoal-400 hover:text-blue-400'
+                                                                }`}
+                                                            title="Tocar Playback"
+                                                        >
+                                                            {playingId === song.id ? <Pause size={18} /> : <Headphones size={18} />}
+                                                        </button>
                                                     )}
                                                     <button
                                                         onClick={() => markAsPlayed(song)}

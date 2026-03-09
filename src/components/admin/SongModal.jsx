@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Upload, FileText, Music, Loader2, Image as ImageIcon } from 'lucide-react'
+import { X, FileText, Music, Loader2, Image as ImageIcon, Headphones } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const SongModal = ({ isOpen, song, onClose, onSave }) => {
@@ -14,7 +14,8 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
     })
     const [files, setFiles] = useState({
         cover: null,
-        sheet: null
+        sheet: null,
+        playback: null
     })
     const [loading, setLoading] = useState(false)
     const [uploadProgress, setUploadProgress] = useState(null)
@@ -28,7 +29,8 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                 tone: song.tone || '',
                 bpm: song.bpm || '',
                 category: song.category || '',
-                is_active: song.is_active ?? true
+                is_active: song.is_active ?? true,
+                playback_url: song.playback_url || ''
             })
         }
     }, [song])
@@ -74,6 +76,7 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
         try {
             let cover_image_url = song?.cover_image_url
             let sheet_music_url = song?.sheet_music_url
+            let playback_url = song?.playback_url || formData.playback_url || null
 
             // Upload files if selected
             if (files.cover) {
@@ -84,13 +87,19 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                 setUploadProgress('Fazendo upload da partitura...')
                 sheet_music_url = await uploadFile(files.sheet, 'sheets')
             }
+            if (files.playback) {
+                setUploadProgress('Fazendo upload do playback...')
+                playback_url = await uploadFile(files.playback, 'playbacks')
+            }
 
             setUploadProgress('Salvando dados...')
 
+            const { playback_url: _pb, ...formRest } = formData
             const songData = {
-                ...formData,
+                ...formRest,
                 cover_image_url,
                 sheet_music_url,
+                playback_url,
                 bpm: formData.bpm ? parseInt(formData.bpm) : null
             }
 
@@ -245,6 +254,30 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                                         onChange={handleFileChange}
                                         className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20"
                                     />
+                                </div>
+
+                                <div className="p-4 border border-dashed border-charcoal-700 rounded-xl">
+                                    <label className="block text-sm font-medium text-charcoal-400 mb-3 flex items-center space-x-2">
+                                        <Headphones size={18} />
+                                        <span>Playback (MP3/WAV)</span>
+                                    </label>
+                                    {song?.playback_url && !files.playback && (
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <audio controls src={song.playback_url} className="h-8 w-full" style={{ filter: 'invert(0.8) sepia(1) hue-rotate(10deg)' }} />
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        name="playback"
+                                        accept=".mp3,.wav,audio/mpeg,audio/wav"
+                                        onChange={handleFileChange}
+                                        className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20"
+                                    />
+                                    {files.playback && (
+                                        <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                                            <span>✓</span> {files.playback.name}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
