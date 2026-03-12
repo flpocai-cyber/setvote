@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Public Pages
@@ -23,31 +24,33 @@ import PublicEventVoting from './pages/public/PublicEventVoting'
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<PublicGallery />} />
-          <Route path="/votar" element={<PublicGallery />} />
-          <Route path="/setlist/:token" element={<MusicianSetlist />} />
-          <Route path="/evento/:token" element={<PublicEventVoting />} />
+      <ThemeProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<PublicGallery />} />
+            <Route path="/votar" element={<PublicGallery />} />
+            <Route path="/setlist/:token" element={<MusicianSetlist />} />
+            <Route path="/evento/:token" element={<PublicEventVoting />} />
 
-          {/* Admin Login */}
-          <Route path="/admin" element={<AdminLogin />} />
+            {/* Admin Login */}
+            <Route path="/admin" element={<AdminLogin />} />
 
-          {/* Protected Admin Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/musicas" element={<AdminSongs />} />
-            <Route path="/admin/patrocinadores" element={<AdminSponsors />} />
-            <Route path="/admin/configuracoes" element={<AdminSettings />} />
-            <Route path="/admin/sobre" element={<AdminAbout />} />
-            <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
-            <Route path="/admin/link-musicos" element={<AdminShareLink />} />
-            <Route path="/admin/eventos-futuros" element={<AdminFutureEvents />} />
-            <Route path="/admin/evento/:token" element={<AdminEventList />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+            {/* Protected Admin Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/musicas" element={<AdminSongs />} />
+              <Route path="/admin/patrocinadores" element={<AdminSponsors />} />
+              <Route path="/admin/configuracoes" element={<AdminSettings />} />
+              <Route path="/admin/sobre" element={<AdminAbout />} />
+              <Route path="/admin/estatisticas" element={<AdminEstatisticas />} />
+              <Route path="/admin/link-musicos" element={<AdminShareLink />} />
+              <Route path="/admin/eventos-futuros" element={<AdminFutureEvents />} />
+              <Route path="/admin/evento/:token" element={<AdminEventList />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   )
 }

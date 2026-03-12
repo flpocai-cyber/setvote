@@ -2,43 +2,29 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
-    Trophy, CheckCircle2, ListMusic, Music, LayoutDashboard,
-    Settings, LogOut, RefreshCcw, Eye, Play, History,
+    Trophy, CheckCircle2, ListMusic, Music,
+    Play, History,
     ExternalLink, FileText, Users, UserCircle, CalendarPlus,
-    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause,
-    Sun, Moon
+    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ShowRegistrationModal from '../../components/admin/ShowRegistrationModal'
+import AdminLayout from '../../components/admin/AdminLayout'
+import { useTheme } from '../../context/ThemeContext'
 
 const AdminDashboard = () => {
+    const { darkMode } = useTheme()
     const [songs, setSongs] = useState([])
     const [loading, setLoading] = useState(true)
-    const [session, setSession] = useState(null)
-    const [profile, setProfile] = useState(null)
     const [fetchError, setFetchError] = useState(null)
     const [profileCount, setProfileCount] = useState(0)
 
     // Active show state (persisted to localStorage)
     const [showModalOpen, setShowModalOpen] = useState(false)
-    const [futureEvents, setFutureEvents] = useState([]) // added
+    const [futureEvents, setFutureEvents] = useState([])
     const [activeShow, setActiveShow] = useState(() => {
         try { return JSON.parse(localStorage.getItem('activeShow')) || null } catch { return null }
     })
-
-    // Dark/Light mode
-    const [darkMode, setDarkMode] = useState(() => {
-        const saved = localStorage.getItem('admin_dark_mode')
-        return saved === null ? true : saved === 'true'
-    })
-
-    const toggleDarkMode = () => {
-        setDarkMode(prev => {
-            const next = !prev
-            localStorage.setItem('admin_dark_mode', String(next))
-            return next
-        })
-    }
 
     // Playback state
     const [playingId, setPlayingId] = useState(null)
@@ -264,54 +250,8 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div className={`min-h-screen flex transition-colors duration-300 ${darkMode ? 'bg-charcoal-950' : 'bg-gray-100'}`}>
-            {/* Sidebar */}
-            <aside className={`w-64 border-r flex flex-col hidden lg:flex transition-colors duration-300 ${darkMode ? 'bg-charcoal-900 border-charcoal-800' : 'bg-white border-gray-200'}`}>
-                <div className="p-6">
-                    <h2 className="text-xl font-display font-bold gold-gradient flex items-center space-x-2">
-                        <Music className="text-gold-500" />
-                        <span>SetVote Admin</span>
-                    </h2>
-                </div>
-
-                <nav className="flex-1 px-4 space-y-2">
-                    <Link to="/admin/dashboard" className="flex items-center space-x-3 text-gold-500 bg-gold-500/10 px-4 py-3 rounded-xl transition-all">
-                        <LayoutDashboard size={20} />
-                        <span>Dashboard</span>
-                    </Link>
-                    {[
-                        { to: '/admin/musicas', icon: <Music size={20} />, label: 'Músicas' },
-                        { to: '/admin/patrocinadores', icon: <Users size={20} />, label: 'Patrocinadores' },
-                        { to: '/admin/sobre', icon: <UserCircle size={20} />, label: 'Sobre o Músico' },
-                        { to: '/admin/estatisticas', icon: <BarChart2 size={20} />, label: 'Estatísticas' },
-                        { to: '/admin/link-musicos', icon: <Share2 size={20} />, label: 'Link para Músicos' },
-                        { to: '/admin/eventos-futuros', icon: <CalendarDays size={20} />, label: 'Eventos Futuros' },
-                        { to: '/admin/configuracoes', icon: <Settings size={20} />, label: 'Configurações' },
-                    ].map(item => (
-                        <Link
-                            key={item.to}
-                            to={item.to}
-                            className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all hover:text-gold-500 hover:bg-gold-500/5 ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}
-                        >
-                            {item.icon}
-                            <span>{item.label}</span>
-                        </Link>
-                    ))}
-                </nav>
-
-                <div className="p-4 mt-auto">
-                    <button
-                        onClick={() => supabase.auth.signOut()}
-                        className={`flex items-center space-x-3 hover:text-red-400 px-4 py-3 transition-colors w-full ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}
-                    >
-                        <LogOut size={20} />
-                        <span>Sair</span>
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 p-8 overflow-y-auto">
+        <AdminLayout>
+            <div className="p-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
                         <div>
@@ -328,18 +268,6 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="flex flex-wrap gap-3 items-center">
-                            {/* Dark/Light Toggle */}
-                            <button
-                                onClick={toggleDarkMode}
-                                title={darkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
-                                className={`p-2.5 rounded-xl border transition-all ${
-                                    darkMode
-                                        ? 'bg-charcoal-900 border-charcoal-700 text-gold-400 hover:bg-charcoal-800'
-                                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-                            </button>
                             {/* Cadastrar Show */}
                             <button
                                 onClick={() => setShowModalOpen(true)}
@@ -352,7 +280,7 @@ const AdminDashboard = () => {
                             {/* Finalizar Show */}
                             <button
                                 onClick={finalizeShow}
-                                className="px-5 py-3 border border-charcoal-700 text-charcoal-400 hover:text-white hover:bg-charcoal-900 rounded-xl flex items-center justify-center space-x-2 transition-all"
+                                className={`px-5 py-3 border rounded-xl flex items-center justify-center space-x-2 transition-all ${darkMode ? 'border-charcoal-700 text-charcoal-400 hover:text-white hover:bg-charcoal-900' : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                             >
                                 <CheckCheck size={18} />
                                 <span>Finalizar Show</span>
@@ -669,7 +597,7 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
 
             {/* Show Registration Modal */}
             <ShowRegistrationModal
@@ -677,7 +605,7 @@ const AdminDashboard = () => {
                 onClose={() => setShowModalOpen(false)}
                 onSave={handleRegisterShow}
             />
-        </div>
+        </AdminLayout>
     )
 }
 
