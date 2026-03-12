@@ -5,7 +5,8 @@ import {
     Trophy, CheckCircle2, ListMusic, Music, LayoutDashboard,
     Settings, LogOut, RefreshCcw, Eye, Play, History,
     ExternalLink, FileText, Users, UserCircle, CalendarPlus,
-    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause
+    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause,
+    Sun, Moon
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ShowRegistrationModal from '../../components/admin/ShowRegistrationModal'
@@ -24,6 +25,20 @@ const AdminDashboard = () => {
     const [activeShow, setActiveShow] = useState(() => {
         try { return JSON.parse(localStorage.getItem('activeShow')) || null } catch { return null }
     })
+
+    // Dark/Light mode
+    const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('admin_dark_mode')
+        return saved === null ? true : saved === 'true'
+    })
+
+    const toggleDarkMode = () => {
+        setDarkMode(prev => {
+            const next = !prev
+            localStorage.setItem('admin_dark_mode', String(next))
+            return next
+        })
+    }
 
     // Playback state
     const [playingId, setPlayingId] = useState(null)
@@ -249,9 +264,9 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-charcoal-950 flex">
+        <div className={`min-h-screen flex transition-colors duration-300 ${darkMode ? 'bg-charcoal-950' : 'bg-gray-100'}`}>
             {/* Sidebar */}
-            <aside className="w-64 bg-charcoal-900 border-r border-charcoal-800 flex flex-col hidden lg:flex">
+            <aside className={`w-64 border-r flex flex-col hidden lg:flex transition-colors duration-300 ${darkMode ? 'bg-charcoal-900 border-charcoal-800' : 'bg-white border-gray-200'}`}>
                 <div className="p-6">
                     <h2 className="text-xl font-display font-bold gold-gradient flex items-center space-x-2">
                         <Music className="text-gold-500" />
@@ -264,40 +279,30 @@ const AdminDashboard = () => {
                         <LayoutDashboard size={20} />
                         <span>Dashboard</span>
                     </Link>
-                    <Link to="/admin/musicas" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <Music size={20} />
-                        <span>Músicas</span>
-                    </Link>
-                    <Link to="/admin/patrocinadores" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <Users size={20} />
-                        <span>Patrocinadores</span>
-                    </Link>
-                    <Link to="/admin/sobre" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <UserCircle size={20} />
-                        <span>Sobre o Músico</span>
-                    </Link>
-                    <Link to="/admin/estatisticas" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <BarChart2 size={20} />
-                        <span>Estatísticas</span>
-                    </Link>
-                    <Link to="/admin/link-musicos" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <Share2 size={20} />
-                        <span>Link para Músicos</span>
-                    </Link>
-                    <Link to="/admin/eventos-futuros" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <CalendarDays size={20} />
-                        <span>Eventos Futuros</span>
-                    </Link>
-                    <Link to="/admin/configuracoes" className="flex items-center space-x-3 text-charcoal-400 hover:text-gold-500 hover:bg-gold-500/5 px-4 py-3 rounded-xl transition-all">
-                        <Settings size={20} />
-                        <span>Configurações</span>
-                    </Link>
+                    {[
+                        { to: '/admin/musicas', icon: <Music size={20} />, label: 'Músicas' },
+                        { to: '/admin/patrocinadores', icon: <Users size={20} />, label: 'Patrocinadores' },
+                        { to: '/admin/sobre', icon: <UserCircle size={20} />, label: 'Sobre o Músico' },
+                        { to: '/admin/estatisticas', icon: <BarChart2 size={20} />, label: 'Estatísticas' },
+                        { to: '/admin/link-musicos', icon: <Share2 size={20} />, label: 'Link para Músicos' },
+                        { to: '/admin/eventos-futuros', icon: <CalendarDays size={20} />, label: 'Eventos Futuros' },
+                        { to: '/admin/configuracoes', icon: <Settings size={20} />, label: 'Configurações' },
+                    ].map(item => (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all hover:text-gold-500 hover:bg-gold-500/5 ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}
+                        >
+                            {item.icon}
+                            <span>{item.label}</span>
+                        </Link>
+                    ))}
                 </nav>
 
                 <div className="p-4 mt-auto">
                     <button
                         onClick={() => supabase.auth.signOut()}
-                        className="flex items-center space-x-3 text-charcoal-500 hover:text-red-400 px-4 py-3 transition-colors w-full"
+                        className={`flex items-center space-x-3 hover:text-red-400 px-4 py-3 transition-colors w-full ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}
                     >
                         <LogOut size={20} />
                         <span>Sair</span>
@@ -310,7 +315,7 @@ const AdminDashboard = () => {
                 <div className="max-w-7xl mx-auto">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
                         <div>
-                            <h1 className="text-4xl font-display font-bold text-white mb-2">Votação em Tempo Real</h1>
+                            <h1 className={`text-4xl font-display font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Votação em Tempo Real</h1>
                             <div className="flex items-center space-x-4">
                                 <span className="flex items-center text-green-500 text-sm font-medium">
                                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
@@ -322,7 +327,19 @@ const AdminDashboard = () => {
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-3 items-center">
+                            {/* Dark/Light Toggle */}
+                            <button
+                                onClick={toggleDarkMode}
+                                title={darkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+                                className={`p-2.5 rounded-xl border transition-all ${
+                                    darkMode
+                                        ? 'bg-charcoal-900 border-charcoal-700 text-gold-400 hover:bg-charcoal-800'
+                                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                            </button>
                             {/* Cadastrar Show */}
                             <button
                                 onClick={() => setShowModalOpen(true)}
@@ -452,11 +469,11 @@ const AdminDashboard = () => {
                             {/* Remaining Ranking */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between mb-4 px-2">
-                                    <h2 className="text-xl font-display font-bold text-white flex items-center space-x-2">
+                                    <h2 className={`text-xl font-display font-bold flex items-center space-x-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                         <ListMusic className="text-gold-500" />
                                         <span>Ranking do Público</span>
                                     </h2>
-                                    <span className="text-charcoal-400 text-sm">{rankedSongs.length} músicas aguardando</span>
+                                    <span className={`text-sm ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}>{rankedSongs.length} músicas aguardando</span>
                                 </div>
 
                                 <div className="space-y-3">
@@ -468,33 +485,35 @@ const AdminDashboard = () => {
                                                 initial={{ opacity: 0, x: -20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: 20 }}
-                                                className="glass rounded-2xl p-4 flex items-center justify-between group border-transparent hover:border-gold-500/30 transition-all"
+                                                className={`rounded-2xl p-4 flex items-center justify-between group border hover:border-gold-500/30 transition-all ${
+                                                    darkMode ? 'glass border-transparent' : 'bg-white border-gray-200 shadow-sm'
+                                                }`}
                                             >
                                                 <div className="flex items-center space-x-4">
-                                                    <div className="text-charcoal-500 font-display font-bold w-6">{index + 2}</div>
-                                                    <div className="w-12 h-12 rounded-lg bg-charcoal-800 overflow-hidden border border-charcoal-700">
+                                                    <div className={`font-display font-bold w-6 ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}>{index + 2}</div>
+                                                    <div className={`w-12 h-12 rounded-lg overflow-hidden border ${darkMode ? 'bg-charcoal-800 border-charcoal-700' : 'bg-gray-100 border-gray-200'}`}>
                                                         {song.cover_image_url ? (
                                                             <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center"><Music className="text-charcoal-600 w-5 h-5" /></div>
+                                                            <div className="w-full h-full flex items-center justify-center"><Music className={`w-5 h-5 ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`} /></div>
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-white group-hover:text-gold-400 transition-colors">{song.title}</div>
-                                                        <div className="text-xs text-charcoal-400">{song.artist}</div>
+                                                        <div className={`font-bold group-hover:text-gold-400 transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{song.title}</div>
+                                                        <div className={`text-xs ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}>{song.artist}</div>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center space-x-6">
                                                     <div className="text-center">
                                                         <div className="text-xl font-display font-bold text-gold-500">{song.votes}</div>
-                                                        <div className="text-[10px] text-charcoal-500 uppercase tracking-tighter">Votos</div>
+                                                        <div className={`text-[10px] uppercase tracking-tighter ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}>Votos</div>
                                                     </div>
                                                     {song.sheet_music_url && (
                                                         <a
                                                             href={song.sheet_music_url}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="bg-charcoal-800 text-charcoal-400 hover:text-gold-500 p-3 rounded-xl transition-all"
+                                                            className={`p-3 rounded-xl transition-all hover:text-gold-500 ${darkMode ? 'bg-charcoal-800 text-charcoal-400' : 'bg-gray-100 text-gray-500'}`}
                                                             title="Ver Partitura"
                                                         >
                                                             <FileText size={18} />
@@ -503,9 +522,11 @@ const AdminDashboard = () => {
                                                     {song.playback_url && (
                                                         <button
                                                             onClick={() => handlePlayback(song)}
-                                                            className={`bg-charcoal-800 p-3 rounded-xl transition-all ${playingId === song.id
-                                                                    ? 'text-blue-500 hover:bg-blue-500/10'
-                                                                    : 'text-charcoal-400 hover:text-blue-400'
+                                                            className={`p-3 rounded-xl transition-all ${playingId === song.id
+                                                                    ? 'text-blue-500 bg-blue-500/10'
+                                                                    : darkMode
+                                                                        ? 'bg-charcoal-800 text-charcoal-400 hover:text-blue-400'
+                                                                        : 'bg-gray-100 text-gray-500 hover:text-blue-500'
                                                                 }`}
                                                             title="Tocar Playback"
                                                         >
@@ -514,7 +535,7 @@ const AdminDashboard = () => {
                                                     )}
                                                     <button
                                                         onClick={() => markAsPlayed(song)}
-                                                        className="bg-charcoal-800 text-charcoal-300 hover:bg-gold-500 hover:text-charcoal-950 p-3 rounded-xl transition-all"
+                                                        className={`p-3 rounded-xl transition-all hover:bg-gold-500 hover:text-charcoal-950 ${darkMode ? 'bg-charcoal-800 text-charcoal-300' : 'bg-gray-100 text-gray-500'}`}
                                                         title="Marcar como tocada"
                                                     >
                                                         <CheckCircle2 size={18} />
@@ -536,13 +557,13 @@ const AdminDashboard = () => {
 
                         {/* Right Column: Played Setlist */}
                         <div className="lg:col-span-4 space-y-6">
-                            <div className="glass rounded-3xl p-6 border-charcoal-800/50 sticky top-8">
+                            <div className={`rounded-3xl p-6 sticky top-8 border ${darkMode ? 'glass border-charcoal-800/50' : 'bg-white border-gray-200 shadow-sm'}`}>
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-display font-bold text-white flex items-center space-x-2">
-                                        <History className="text-charcoal-400" size={20} />
+                                    <h2 className={`text-xl font-display font-bold flex items-center space-x-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        <History className={darkMode ? 'text-charcoal-400' : 'text-gray-400'} size={20} />
                                         <span>Setlist Tocada</span>
                                     </h2>
-                                    <span className="bg-charcoal-800 text-charcoal-400 px-3 py-1 rounded-full text-xs font-bold">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-charcoal-800 text-charcoal-400' : 'bg-gray-100 text-gray-500'}`}>
                                         {playedSongs.length}
                                     </span>
                                 </div>

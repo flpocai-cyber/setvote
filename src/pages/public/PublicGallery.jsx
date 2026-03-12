@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
     Music, Star, FileText, ChevronRight, Search,
     Loader2, CheckCircle2, XCircle, Info, Heart,
-    Users, CreditCard, List, Copy, X, Globe, CheckCheck, UserCircle
+    Users, CreditCard, List, Copy, X, Globe, CheckCheck, UserCircle,
+    Play, Pause, Sun, Moon
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PublicLyricsModal from '../../components/public/PublicLyricsModal'
@@ -29,6 +30,48 @@ const PublicGallery = () => {
     const [aboutPhotos, setAboutPhotos] = useState([])
     const [lightboxPhoto, setLightboxPhoto] = useState(null)
     const [pixCopied, setPixCopied] = useState(false)
+
+    // Dark/Light mode
+    const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('public_dark_mode')
+        return saved === null ? true : saved === 'true'
+    })
+
+    // Playback
+    const [playingId, setPlayingId] = useState(null)
+    const audioRef = useRef(null)
+
+    const toggleDarkMode = () => {
+        setDarkMode(prev => {
+            const next = !prev
+            localStorage.setItem('public_dark_mode', String(next))
+            return next
+        })
+    }
+
+    const handlePlayback = (song) => {
+        if (!song.playback_url) return
+
+        if (playingId === song.id) {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.src = ''
+                audioRef.current = null
+            }
+            setPlayingId(null)
+        } else {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.src = ''
+                audioRef.current = null
+            }
+            const audio = new Audio(song.playback_url)
+            audio.play().catch(e => console.error('Playback error', e))
+            audio.onended = () => { setPlayingId(null); audioRef.current = null }
+            audioRef.current = audio
+            setPlayingId(song.id)
+        }
+    }
 
     // Helper to determine if voting is actually active
     const isVotingActive = profile ? profile.voting_active : true
@@ -213,15 +256,52 @@ const PublicGallery = () => {
         )
     }
 
+    // Theme classes
+    const theme = {
+        page: darkMode ? 'bg-charcoal-950 text-white' : 'bg-gray-50 text-gray-900',
+        header: darkMode ? '' : 'bg-white/80',
+        card: darkMode ? 'glass border-charcoal-800/50 hover:border-charcoal-700' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm',
+        cardSelected: darkMode ? 'border-gold-500 bg-gold-500/[0.04]' : 'border-gold-500 bg-gold-50',
+        cardSubmitted: darkMode ? 'border-charcoal-800/50 opacity-60' : 'border-gray-200 opacity-60',
+        input: darkMode ? 'bg-charcoal-900/80 border-charcoal-800 placeholder:text-charcoal-600 text-white focus:border-gold-500/50' : 'bg-white border-gray-300 placeholder:text-gray-400 text-gray-900 focus:border-gold-500/70',
+        text: darkMode ? 'text-charcoal-400' : 'text-gray-500',
+        subtext: darkMode ? 'text-charcoal-500' : 'text-gray-400',
+        cover: darkMode ? 'bg-charcoal-800' : 'bg-gray-100',
+        btn: darkMode ? 'bg-charcoal-900 border-charcoal-800 text-charcoal-400 hover:text-white' : 'bg-white border-gray-300 text-gray-500 hover:text-gray-900',
+        iconBtn: darkMode ? 'bg-charcoal-900 border border-charcoal-800 text-charcoal-400 hover:text-white' : 'bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900',
+        playBtn: darkMode ? 'bg-charcoal-900 border border-charcoal-800 text-charcoal-400 hover:text-green-400' : 'bg-gray-100 border border-gray-200 text-gray-500 hover:text-green-600',
+        playingBtn: darkMode ? 'bg-green-500/10 border border-green-500/40 text-green-400' : 'bg-green-50 border border-green-300 text-green-600',
+        votes: darkMode ? 'text-gold-500 bg-gold-500/10' : 'text-gold-600 bg-gold-100',
+        modal: darkMode ? 'glass rounded-3xl border border-charcoal-700' : 'bg-white rounded-3xl border border-gray-200 shadow-xl',
+        modalHeader: darkMode ? 'border-charcoal-800' : 'border-gray-100',
+        footer: darkMode ? 'from-charcoal-950 via-charcoal-950/80' : 'from-gray-50 via-gray-50/80',
+        footerText: darkMode ? 'text-charcoal-600' : 'text-gray-400',
+    }
+
     return (
-        <div className="min-h-screen bg-charcoal-950 text-white selection:bg-gold-500/30">
+        <div className={`min-h-screen ${theme.page} selection:bg-gold-500/30 transition-colors duration-300`}>
             {/* Header / Profile */}
             <header className="relative py-12 px-6 overflow-hidden">
                 <div className="absolute inset-0 bg-gold-500/5 blur-3xl rounded-full -translate-y-1/2 scale-150"></div>
+
+                {/* Dark/Light Toggle */}
+                <div className="absolute top-4 right-4 z-20">
+                    <button
+                        onClick={toggleDarkMode}
+                        title={darkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+                        className={`p-2.5 rounded-full border transition-all ${darkMode
+                            ? 'bg-charcoal-900/80 border-charcoal-700 text-gold-400 hover:bg-charcoal-800'
+                            : 'bg-white/80 border-gray-300 text-gray-600 hover:bg-gray-100'
+                        } backdrop-blur-sm shadow-lg`}
+                    >
+                        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+                </div>
+
                 <div className="max-w-2xl mx-auto relative z-10 text-center">
                     <div className="mb-6 relative inline-block">
                         <div className="w-24 h-24 rounded-full border-2 border-gold-500 p-1 mx-auto">
-                            <div className="w-full h-full rounded-full bg-charcoal-900 overflow-hidden flex items-center justify-center">
+                            <div className={`w-full h-full rounded-full ${darkMode ? 'bg-charcoal-900' : 'bg-gray-100'} overflow-hidden flex items-center justify-center`}>
                                 {profile?.profile_image_url ? (
                                     <img src={profile.profile_image_url} alt={profile.musician_name} className="w-full h-full object-cover" />
                                 ) : (
@@ -230,12 +310,12 @@ const PublicGallery = () => {
                             </div>
                         </div>
                         {profile?.voting_active ? (
-                            <span className="absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-4 border-charcoal-950 animate-pulse"></span>
+                            <span className={`absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-4 ${darkMode ? 'border-charcoal-950' : 'border-gray-50'} animate-pulse`}></span>
                         ) : null}
                     </div>
 
                     <h1 className="text-3xl font-display font-bold gold-gradient mb-2">{profile?.musician_name || 'Setlist ao Vivo'}</h1>
-                    <p className="text-charcoal-400 text-sm mb-6 max-w-sm mx-auto leading-relaxed">
+                    <p className={`${theme.text} text-sm mb-6 max-w-sm mx-auto leading-relaxed`}>
                         {profile?.welcome_text || 'Olá! Escolha sua música favorita e eu a tocarei para você!'}
                     </p>
 
@@ -252,7 +332,7 @@ const PublicGallery = () => {
                         {sponsors.length > 0 && (
                             <button
                                 onClick={() => setShowSponsors(true)}
-                                className="flex items-center space-x-2 bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/40 hover:bg-gold-500/5 text-charcoal-300 hover:text-gold-400 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                                className={`flex items-center space-x-2 ${theme.btn} border px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:border-gold-500/40 hover:text-gold-400`}
                             >
                                 <Users size={15} />
                                 <span>Patrocinadores</span>
@@ -261,7 +341,7 @@ const PublicGallery = () => {
                         {profile?.pix_key && (
                             <button
                                 onClick={() => setShowPix(true)}
-                                className="flex items-center space-x-2 bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/40 hover:bg-gold-500/5 text-charcoal-300 hover:text-gold-400 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                                className={`flex items-center space-x-2 ${theme.btn} border px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:border-gold-500/40 hover:text-gold-400`}
                             >
                                 <CreditCard size={15} />
                                 <span>Couvert Artístico</span>
@@ -269,7 +349,7 @@ const PublicGallery = () => {
                         )}
                         <button
                             onClick={() => setShowAllSongs(true)}
-                            className="flex items-center space-x-2 bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/40 hover:bg-gold-500/5 text-charcoal-300 hover:text-gold-400 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                            className={`flex items-center space-x-2 ${theme.btn} border px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:border-gold-500/40 hover:text-gold-400`}
                         >
                             <List size={15} />
                             <span>Músicas</span>
@@ -277,7 +357,7 @@ const PublicGallery = () => {
                         {(profile?.about_text || aboutPhotos.length > 0) && (
                             <button
                                 onClick={() => setShowAbout(true)}
-                                className="flex items-center space-x-2 bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/40 hover:bg-gold-500/5 text-charcoal-300 hover:text-gold-400 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                                className={`flex items-center space-x-2 ${theme.btn} border px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:border-gold-500/40 hover:text-gold-400`}
                             >
                                 <UserCircle size={15} />
                                 <span>Sobre o Músico</span>
@@ -527,11 +607,11 @@ const PublicGallery = () => {
             <main className="max-w-xl mx-auto px-4 pb-24">
                 {/* Search */}
                 <div className="relative mb-8">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal-500" size={18} />
+                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${theme.subtext}`} size={18} />
                     <input
                         type="text"
                         placeholder="Pesquisar música ou artista..."
-                        className="w-full bg-charcoal-900/80 backdrop-blur-md border border-charcoal-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-gold-500/50 transition-all placeholder:text-charcoal-600"
+                        className={`w-full backdrop-blur-md border rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none transition-all ${theme.input}`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -562,25 +642,27 @@ const PublicGallery = () => {
                         {filteredSongs.map(song => {
                             const isSelected = selectedSongIds.includes(song.id)
                             const canSelect = !votesSubmitted && isVotingActive && (isSelected || selectedSongIds.length < MAX_VOTES)
+                            const isPlaying = playingId === song.id
                             return (
                                 <motion.div
                                     key={song.id}
                                     layout
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className={`glass p-4 rounded-3xl border transition-all ${isSelected
-                                            ? 'border-gold-500 bg-gold-500/[0.04]'
+                                    className={`p-4 rounded-3xl border transition-all ${
+                                        isSelected
+                                            ? theme.cardSelected
                                             : votesSubmitted
-                                                ? 'border-charcoal-800/50 opacity-60'
-                                                : 'border-charcoal-800/50 hover:border-charcoal-700'
-                                        }`}
+                                                ? theme.cardSubmitted
+                                                : theme.card
+                                    }`}
                                 >
                                     <div className="flex items-center space-x-4">
-                                        <div className="w-16 h-16 rounded-2xl bg-charcoal-800 flex-shrink-0 overflow-hidden relative group">
+                                        <div className={`w-16 h-16 rounded-2xl ${theme.cover} flex-shrink-0 overflow-hidden relative group`}>
                                             {song.cover_image_url ? (
                                                 <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center"><Music className="text-charcoal-700" size={20} /></div>
+                                                <div className="w-full h-full flex items-center justify-center"><Music className={theme.subtext} size={20} /></div>
                                             )}
                                             <button
                                                 onClick={() => setSelectedSongForLyrics(song)}
@@ -592,29 +674,36 @@ const PublicGallery = () => {
 
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between gap-2">
-                                                <h3 className="font-bold text-white truncate">{song.title}</h3>
+                                                <h3 className={`font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{song.title}</h3>
                                                 {song.votes > 0 && (
-                                                    <span className="text-[10px] font-black text-gold-500 bg-gold-500/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0 ${theme.votes}`}>
                                                         {song.votes} {song.votes === 1 ? 'VOTO' : 'VOTOS'}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-charcoal-400 truncate mt-0.5">{song.artist}</p>
+                                            <p className={`text-xs truncate mt-0.5 ${theme.text}`}>{song.artist}</p>
 
-                                            <div className="mt-3 flex items-center space-x-3">
+                                            <div className="mt-3 flex items-center space-x-2">
                                                 <button
                                                     onClick={() => handleToggleSelect(song.id)}
                                                     disabled={!canSelect && !isSelected}
-                                                    className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-black transition-all ${votesSubmitted
+                                                    className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-black transition-all ${
+                                                        votesSubmitted
                                                             ? isSelected
                                                                 ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30 cursor-default'
-                                                                : 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
+                                                                : darkMode
+                                                                    ? 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
+                                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40'
                                                             : isSelected
                                                                 ? 'bg-gold-500 text-charcoal-950 shadow-lg shadow-gold-500/20 hover:bg-gold-400'
                                                                 : !canSelect
-                                                                    ? 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
-                                                                    : 'bg-charcoal-800 text-charcoal-200 hover:bg-gold-500/10 hover:text-gold-400'
-                                                        }`}
+                                                                    ? darkMode
+                                                                        ? 'bg-charcoal-900 text-charcoal-700 cursor-not-allowed opacity-40'
+                                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40'
+                                                                    : darkMode
+                                                                        ? 'bg-charcoal-800 text-charcoal-200 hover:bg-gold-500/10 hover:text-gold-400'
+                                                                        : 'bg-gray-100 text-gray-700 hover:bg-gold-500/10 hover:text-gold-600'
+                                                    }`}
                                                 >
                                                     {isSelected ? (
                                                         <>
@@ -629,9 +718,21 @@ const PublicGallery = () => {
                                                     )}
                                                 </button>
 
+                                                {/* Playback Button */}
+                                                {song.playback_url && (
+                                                    <button
+                                                        onClick={() => handlePlayback(song)}
+                                                        className={`p-2.5 rounded-xl transition-all flex-shrink-0 ${isPlaying ? theme.playingBtn : theme.playBtn}`}
+                                                        title={isPlaying ? 'Parar Playback' : 'Ouvir Playback'}
+                                                    >
+                                                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                                                    </button>
+                                                )}
+
+                                                {/* Lyrics Button */}
                                                 <button
                                                     onClick={() => setSelectedSongForLyrics(song)}
-                                                    className="p-2.5 rounded-xl bg-charcoal-900 border border-charcoal-800 text-charcoal-400 hover:text-white transition-colors flex-shrink-0"
+                                                    className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${theme.iconBtn}`}
                                                     title="Ver Letra"
                                                 >
                                                     <Info size={18} />
@@ -645,16 +746,16 @@ const PublicGallery = () => {
                     </AnimatePresence>
 
                     {filteredSongs.length === 0 && !loading && (
-                        <div className="text-center py-20 bg-charcoal-900/30 rounded-3xl border-2 border-dashed border-charcoal-900">
-                            <Music className="w-12 h-12 text-charcoal-800 mx-auto mb-4" />
-                            <p className="text-charcoal-500 text-sm">Nenhuma música disponível no momento.</p>
+                        <div className={`text-center py-20 rounded-3xl border-2 border-dashed ${darkMode ? 'bg-charcoal-900/30 border-charcoal-900' : 'bg-gray-100/50 border-gray-200'}`}>
+                            <Music className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-charcoal-800' : 'text-gray-300'}`} />
+                            <p className={`text-sm ${theme.subtext}`}>Nenhuma música disponível no momento.</p>
                         </div>
                     )}
                 </div>
             </main>
 
             {/* Footer / Branding */}
-            <footer className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-charcoal-950 via-charcoal-950/80 to-transparent pointer-events-none">
+            <footer className={`fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t ${theme.footer} to-transparent pointer-events-none`}>
                 <div className="max-w-2xl mx-auto flex flex-col items-center gap-3">
                     {/* Submit Button */}
                     {isVotingActive && !votesSubmitted && selectedSongIds.length > 0 && (
@@ -667,7 +768,9 @@ const PublicGallery = () => {
                             disabled={votingInProgress}
                             className={`pointer-events-auto w-full max-w-sm py-4 rounded-2xl font-black text-sm flex items-center justify-center space-x-2 transition-all shadow-2xl ${selectedSongIds.length === MAX_VOTES
                                     ? 'gold-bg-gradient text-charcoal-950 shadow-gold-500/30'
-                                    : 'bg-charcoal-800 text-charcoal-200 border border-charcoal-700 shadow-black/40'
+                                    : darkMode
+                                        ? 'bg-charcoal-800 text-charcoal-200 border border-charcoal-700 shadow-black/40'
+                                        : 'bg-white text-gray-700 border border-gray-300 shadow-gray-200'
                                 }`}
                         >
                             {votingInProgress ? (
@@ -697,7 +800,7 @@ const PublicGallery = () => {
                         </motion.div>
                     )}
 
-                    <div className="text-[10px] text-charcoal-600 uppercase tracking-[0.2em] font-black">
+                    <div className={`text-[10px] uppercase tracking-[0.2em] font-black ${theme.footerText}`}>
                         Powered by SetVote
                     </div>
                 </div>
