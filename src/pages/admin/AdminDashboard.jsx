@@ -500,23 +500,23 @@ const AdminDashboard = () => {
                                     {playedSongs.map((song, index) => (
                                         <div key={song.id} className="flex items-start space-x-4 group">
                                             <div className="relative">
-                                                <div className="w-8 h-8 rounded-full bg-charcoal-800 flex items-center justify-center text-xs font-bold text-charcoal-500 group-hover:bg-gold-500 group-hover:text-charcoal-950 transition-colors">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold group-hover:bg-gold-500 group-hover:text-charcoal-950 transition-colors ${darkMode ? 'bg-charcoal-800 text-charcoal-500' : 'bg-gray-100 text-gray-500'}`}>
                                                     {index + 1}
                                                 </div>
                                                 {index < playedSongs.length - 1 && (
-                                                    <div className="absolute top-8 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-charcoal-800"></div>
+                                                    <div className={`absolute top-8 left-1/2 -translate-x-1/2 w-0.5 h-6 ${darkMode ? 'bg-charcoal-800' : 'bg-gray-200'}`}></div>
                                                 )}
                                             </div>
                                             <div className="flex-1 pb-6">
-                                                <div className="font-bold text-charcoal-200 text-sm leading-tight">{song.title}</div>
-                                                <div className="text-xs text-charcoal-500">{song.artist}</div>
+                                                <div className={`font-bold text-sm leading-tight ${darkMode ? 'text-charcoal-200' : 'text-gray-900'}`}>{song.title}</div>
+                                                <div className={`text-xs ${darkMode ? 'text-charcoal-500' : 'text-gray-500'}`}>{song.artist}</div>
                                             </div>
                                         </div>
                                     ))}
 
                                     {playedSongs.length === 0 && (
                                         <div className="text-center py-10">
-                                            <p className="text-charcoal-600 text-sm italic">O show ainda não começou!</p>
+                                            <p className={`text-sm italic ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`}>O show ainda não começou!</p>
                                         </div>
                                     )}
                                 </div>
@@ -525,17 +525,17 @@ const AdminDashboard = () => {
                             {/* Próximos Eventos */}
                             {futureEvents.length > 0 && (
                                 <div className="space-y-3 mt-4">
-                                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <h3 className={`font-bold text-sm uppercase tracking-wider mb-2 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                                         <CalendarDays size={16} className="text-gold-500" /> Próximos Eventos
                                     </h3>
                                     {futureEvents.map(event => (
                                         <Link
                                             key={event.id}
                                             to="/admin/eventos-futuros"
-                                            className="block glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all"
+                                            className={`block rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}
                                         >
-                                            <div className="font-bold text-white text-sm mb-1 truncate group-hover:text-gold-400">{event.title}</div>
-                                            <div className="flex items-center gap-4 text-xs text-charcoal-400">
+                                            <div className={`font-bold text-sm mb-1 truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{event.title}</div>
+                                            <div className={`flex items-center gap-4 text-xs ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}>
                                                 <span className="flex items-center gap-1"><CalendarDays size={12} /> {new Date(event.event_date).toLocaleDateString('pt-BR')}</span>
                                                 {event.venue && <span className="flex items-center gap-1 truncate"><MapPin size={12} /> {event.venue}</span>}
                                             </div>
@@ -546,53 +546,24 @@ const AdminDashboard = () => {
 
                             {/* Quick Links */}
                             <div className="space-y-3 mt-4">
-                                <Link
-                                    to="/admin/estatisticas"
-                                    className="flex items-center justify-between glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group"
-                                >
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">
-                                            <BarChart2 className="text-gold-500" size={18} />
+                                {[
+                                    { to: '/admin/estatisticas', icon: <BarChart2 className="text-gold-500" size={18} />, label: 'Estatísticas', sub: 'Histórico de shows' },
+                                    { to: '/admin/sobre', icon: <UserCircle className="text-gold-500" size={18} />, label: 'Sobre o Músico', sub: 'Bio e galeria de fotos' },
+                                    { to: '/admin/patrocinadores', icon: <Users className="text-gold-500" size={18} />, label: 'Patrocinadores', sub: 'Gerenciar logos e links' },
+                                ].map(({ to, icon, label, sub }) => (
+                                    <Link key={to} to={to}
+                                        className={`flex items-center justify-between rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">{icon}</div>
+                                            <div>
+                                                <p className={`text-sm font-semibold group-hover:text-gold-500 transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{label}</p>
+                                                <p className={`text-xs ${darkMode ? 'text-charcoal-500' : 'text-gray-500'}`}>{sub}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-white group-hover:text-gold-400 transition-colors">Estatísticas</p>
-                                            <p className="text-xs text-charcoal-500">Histórico de shows</p>
-                                        </div>
-                                    </div>
-                                    <ExternalLink className="text-charcoal-600 group-hover:text-gold-500 transition-colors" size={16} />
-                                </Link>
-
-                                <Link
-                                    to="/admin/sobre"
-                                    className="flex items-center justify-between glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group"
-                                >
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">
-                                            <UserCircle className="text-gold-500" size={18} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-white group-hover:text-gold-400 transition-colors">Sobre o Músico</p>
-                                            <p className="text-xs text-charcoal-500">Bio e galeria de fotos</p>
-                                        </div>
-                                    </div>
-                                    <ExternalLink className="text-charcoal-600 group-hover:text-gold-500 transition-colors" size={16} />
-                                </Link>
-
-                                <Link
-                                    to="/admin/patrocinadores"
-                                    className="flex items-center justify-between glass rounded-2xl p-4 border border-charcoal-800 hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group"
-                                >
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">
-                                            <Users className="text-gold-500" size={18} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-white group-hover:text-gold-400 transition-colors">Patrocinadores</p>
-                                            <p className="text-xs text-charcoal-500">Gerenciar logos e links</p>
-                                        </div>
-                                    </div>
-                                    <ExternalLink className="text-charcoal-600 group-hover:text-gold-500 transition-colors" size={16} />
-                                </Link>
+                                        <ExternalLink className={`group-hover:text-gold-500 transition-colors ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`} size={16} />
+                                    </Link>
+                                ))}
                             </div>
                         </div>
                     </div>
