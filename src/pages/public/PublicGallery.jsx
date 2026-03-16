@@ -4,7 +4,7 @@ import {
     Music, Star, FileText, ChevronRight, Search,
     Loader2, CheckCircle2, XCircle, Info, Heart,
     Users, CreditCard, List, Copy, X, Globe, CheckCheck, UserCircle,
-    Play, Pause, Sun, Moon
+    Play, Pause, Sun, Moon, Instagram, Facebook, Youtube, Twitter
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PublicLyricsModal from '../../components/public/PublicLyricsModal'
@@ -27,6 +27,7 @@ const PublicGallery = () => {
     const [showPix, setShowPix] = useState(false)
     const [showAllSongs, setShowAllSongs] = useState(false)
     const [showAbout, setShowAbout] = useState(false)
+    const [showSocials, setShowSocials] = useState(false)
     const [aboutPhotos, setAboutPhotos] = useState([])
     const [lightboxPhoto, setLightboxPhoto] = useState(null)
     const [pixCopied, setPixCopied] = useState(false)
@@ -363,6 +364,15 @@ const PublicGallery = () => {
                                 <span>Sobre o Músico</span>
                             </button>
                         )}
+                        {(profile?.instagram_url || profile?.facebook_url || profile?.youtube_url || profile?.x_url) && (
+                            <button
+                                onClick={() => setShowSocials(true)}
+                                className={`flex items-center space-x-2 ${theme.btn} border px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:border-gold-500/40 hover:text-gold-400`}
+                            >
+                                <Instagram size={15} />
+                                <span>Minhas Redes</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -407,6 +417,75 @@ const PublicGallery = () => {
                                         {sponsor.website_url && <Globe size={10} className="text-charcoal-600 group-hover:text-gold-500 transition-colors" />}
                                     </motion.a>
                                 ))}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ─── MODAL: Minhas Redes ─── */}
+            <AnimatePresence>
+                {showSocials && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+                        onClick={(e) => e.target === e.currentTarget && setShowSocials(false)}
+                    >
+                        <motion.div
+                            initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25 }}
+                            className="glass rounded-3xl border border-charcoal-700 w-full max-w-sm overflow-hidden flex flex-col"
+                        >
+                            <div className="p-6 border-b border-charcoal-800 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <Instagram className="text-gold-500" size={20} />
+                                    <h2 className="text-lg font-display font-bold text-white">Minhas Redes Sociais</h2>
+                                </div>
+                                <button onClick={() => setShowSocials(false)} className="text-charcoal-500 hover:text-white transition-colors p-1">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                {profile?.instagram_url && (
+                                    <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center justify-between p-4 rounded-xl border border-charcoal-700 bg-white/5 hover:bg-white/10 hover:border-gold-500/30 transition-all group">
+                                        <div className="flex items-center space-x-3">
+                                            <Instagram className="text-pink-500" size={24} />
+                                            <span className="text-white font-medium group-hover:text-gold-400 transition-colors">Instagram</span>
+                                        </div>
+                                        <Globe size={16} className="text-charcoal-500 group-hover:text-gold-500" />
+                                    </a>
+                                )}
+                                {profile?.facebook_url && (
+                                    <a href={profile.facebook_url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center justify-between p-4 rounded-xl border border-charcoal-700 bg-white/5 hover:bg-white/10 hover:border-gold-500/30 transition-all group">
+                                        <div className="flex items-center space-x-3">
+                                            <Facebook className="text-blue-500" size={24} />
+                                            <span className="text-white font-medium group-hover:text-gold-400 transition-colors">Facebook</span>
+                                        </div>
+                                        <Globe size={16} className="text-charcoal-500 group-hover:text-gold-500" />
+                                    </a>
+                                )}
+                                {profile?.youtube_url && (
+                                    <a href={profile.youtube_url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center justify-between p-4 rounded-xl border border-charcoal-700 bg-white/5 hover:bg-white/10 hover:border-gold-500/30 transition-all group">
+                                        <div className="flex items-center space-x-3">
+                                            <Youtube className="text-red-500" size={24} />
+                                            <span className="text-white font-medium group-hover:text-gold-400 transition-colors">YouTube</span>
+                                        </div>
+                                        <Globe size={16} className="text-charcoal-500 group-hover:text-gold-500" />
+                                    </a>
+                                )}
+                                {profile?.x_url && (
+                                    <a href={profile.x_url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center justify-between p-4 rounded-xl border border-charcoal-700 bg-white/5 hover:bg-white/10 hover:border-gold-500/30 transition-all group">
+                                        <div className="flex items-center space-x-3">
+                                            <Twitter className="text-white" size={24} />
+                                            <span className="text-white font-medium group-hover:text-gold-400 transition-colors">X (Twitter)</span>
+                                        </div>
+                                        <Globe size={16} className="text-charcoal-500 group-hover:text-gold-500" />
+                                    </a>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Plus, Trash2, Upload, Loader2, Save,
-    UserCircle, GripVertical, Image
+    UserCircle, GripVertical, Image, Instagram, Facebook, Youtube, Twitter
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -11,9 +11,11 @@ import AdminLayout from '../../components/admin/AdminLayout'
 const AdminAbout = () => {
     const { darkMode } = useTheme()
     const [aboutText, setAboutText] = useState('')
+    const [socialLinks, setSocialLinks] = useState({ instagram_url: '', facebook_url: '', youtube_url: '', x_url: '' })
     const [photos, setPhotos] = useState([])
     const [loading, setLoading] = useState(true)
     const [savingText, setSavingText] = useState(false)
+    const [savingSocial, setSavingSocial] = useState(false)
     const [uploadingPhoto, setUploadingPhoto] = useState(false)
     const [profileId, setProfileId] = useState(null)
     const [newCaption, setNewCaption] = useState('')
@@ -27,8 +29,17 @@ const AdminAbout = () => {
         setLoading(true)
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
-        const { data: profile } = await supabase.from('profiles').select('id, about_text').eq('id', user.id).single()
-        if (profile) { setProfileId(profile.id); setAboutText(profile.about_text || '') }
+        const { data: profile } = await supabase.from('profiles').select('id, about_text, instagram_url, facebook_url, youtube_url, x_url').eq('id', user.id).single()
+        if (profile) { 
+            setProfileId(profile.id)
+            setAboutText(profile.about_text || '') 
+            setSocialLinks({
+                instagram_url: profile.instagram_url || '',
+                facebook_url: profile.facebook_url || '',
+                youtube_url: profile.youtube_url || '',
+                x_url: profile.x_url || ''
+            })
+        }
         await fetchPhotos()
         setLoading(false)
     }
@@ -44,6 +55,14 @@ const AdminAbout = () => {
         const { error } = await supabase.from('profiles').update({ about_text: aboutText }).eq('id', profileId)
         if (error) alert('Erro ao salvar: ' + error.message)
         setSavingText(false)
+    }
+
+    const handleSaveSocial = async () => {
+        if (!profileId) return
+        setSavingSocial(true)
+        const { error } = await supabase.from('profiles').update(socialLinks).eq('id', profileId)
+        if (error) alert('Erro ao salvar redes sociais: ' + error.message)
+        setSavingSocial(false)
     }
 
     const handleFileChange = (e) => {
@@ -147,6 +166,41 @@ const AdminAbout = () => {
                                     placeholder="Escreva sobre você, sua história, experiências..."
                                     className={`w-full border rounded-2xl py-4 px-5 focus:outline-none resize-y text-sm leading-relaxed transition-all ${t.textarea}`} />
                             </section>
+
+                                {/* Redes Sociais */}
+                                <section className={`rounded-3xl p-8 border ${t.section} mt-10`}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center space-x-3">
+                                            <Instagram className="text-gold-500" />
+                                            <h2 className={`text-xl font-display font-bold ${t.sectionTitle}`}>Redes Sociais</h2>
+                                        </div>
+                                        <button onClick={handleSaveSocial} disabled={savingSocial}
+                                            className="gold-bg-gradient text-charcoal-950 font-bold px-6 py-2.5 rounded-xl flex items-center space-x-2 disabled:opacity-50 hover:scale-[1.02] transition-all">
+                                            {savingSocial ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                                            <span>Salvar Links</span>
+                                        </button>
+                                    </div>
+                                    <p className={`text-sm mb-6 ${t.sub}`}>Insira os links completos (incluindo https://) para que os botões funcionem no painel público.</p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className={`text-sm font-semibold flex items-center gap-2 ${darkMode ? 'text-charcoal-300' : 'text-gray-700'}`}><Instagram size={16} /> Instagram</label>
+                                            <input type="url" placeholder="https://instagram.com/seu_perfil" value={socialLinks.instagram_url} onChange={e => setSocialLinks(p => ({ ...p, instagram_url: e.target.value }))} className={`w-full border rounded-xl py-3 px-4 text-sm focus:outline-none transition-all ${t.input}`} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className={`text-sm font-semibold flex items-center gap-2 ${darkMode ? 'text-charcoal-300' : 'text-gray-700'}`}><Facebook size={16} /> Facebook</label>
+                                            <input type="url" placeholder="https://facebook.com/seu_perfil" value={socialLinks.facebook_url} onChange={e => setSocialLinks(p => ({ ...p, facebook_url: e.target.value }))} className={`w-full border rounded-xl py-3 px-4 text-sm focus:outline-none transition-all ${t.input}`} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className={`text-sm font-semibold flex items-center gap-2 ${darkMode ? 'text-charcoal-300' : 'text-gray-700'}`}><Youtube size={16} /> YouTube</label>
+                                            <input type="url" placeholder="https://youtube.com/c/seu_canal" value={socialLinks.youtube_url} onChange={e => setSocialLinks(p => ({ ...p, youtube_url: e.target.value }))} className={`w-full border rounded-xl py-3 px-4 text-sm focus:outline-none transition-all ${t.input}`} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className={`text-sm font-semibold flex items-center gap-2 ${darkMode ? 'text-charcoal-300' : 'text-gray-700'}`}><Twitter size={16} /> X (Twitter)</label>
+                                            <input type="url" placeholder="https://x.com/seu_perfil" value={socialLinks.x_url} onChange={e => setSocialLinks(p => ({ ...p, x_url: e.target.value }))} className={`w-full border rounded-xl py-3 px-4 text-sm focus:outline-none transition-all ${t.input}`} />
+                                        </div>
+                                    </div>
+                                </section>
 
                             {/* Photos */}
                             <section className={`rounded-3xl p-8 border ${t.section}`}>
