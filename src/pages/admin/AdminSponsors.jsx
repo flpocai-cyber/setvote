@@ -36,7 +36,7 @@ const AdminSponsors = () => {
     const handleAdd = async (e) => {
         e.preventDefault()
         if (!file) { alert('Selecione uma imagem para o patrocinador.'); return }
-        if (sponsors.length >= 10) { alert('Máximo de 10 patrocinadores atingido.'); return }
+        if (sponsors.length >= 40) { alert('Máximo de 40 patrocinadores atingido.'); return }
         setSaving(true)
         try {
             const ext = file.name.split('.').pop()
@@ -93,9 +93,9 @@ const AdminSponsors = () => {
                     <div className="flex items-center justify-between mb-10">
                         <div>
                             <h1 className={`text-4xl font-display font-bold ${t.heading}`}>Patrocinadores</h1>
-                            <p className={`mt-1 ${t.sub}`}>{sponsors.length}/10 patrocinadores cadastrados</p>
+                            <p className={`mt-1 ${t.sub}`}>{sponsors.length}/40 patrocinadores cadastrados</p>
                         </div>
-                        {sponsors.length < 10 && (
+                        {sponsors.length < 40 && (
                             <button onClick={() => setShowForm(true)}
                                 className="gold-bg-gradient text-charcoal-950 font-bold px-6 py-3 rounded-xl shadow-lg shadow-gold-500/20 hover:scale-[1.02] transition-all flex items-center space-x-2">
                                 <Plus size={18} /><span>Adicionar</span>
