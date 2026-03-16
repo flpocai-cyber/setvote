@@ -53,7 +53,7 @@ const AdminAbout = () => {
 
     const handleAddPhoto = async () => {
         if (!newFile) { alert('Selecione uma foto.'); return }
-        if (photos.length >= 20) { alert('Limite de 20 fotos atingido.'); return }
+        if (photos.length >= 50) { alert('Limite de 50 fotos atingido.'); return }
         setUploadingPhoto(true)
         try {
             const ext = newFile.name.split('.').pop()
@@ -155,10 +155,10 @@ const AdminAbout = () => {
                                         <Image className="text-gold-500" />
                                         <h2 className={`text-xl font-display font-bold ${t.sectionTitle}`}>Galeria de Fotos</h2>
                                     </div>
-                                    <span className={`text-sm ${t.sub}`}>{photos.length}/20 fotos</span>
+                                    <span className={`text-sm ${t.sub}`}>{photos.length}/50 fotos</span>
                                 </div>
 
-                                {photos.length < 20 && (
+                                {photos.length < 50 && (
                                     <div className={`mb-8 p-6 rounded-2xl border border-dashed ${t.addPhotoBox}`}>
                                         <h3 className={`text-sm font-semibold mb-4 uppercase tracking-wider ${t.addPhotoTitle}`}>Adicionar Nova Foto</h3>
                                         <div className="flex flex-col sm:flex-row gap-4">
