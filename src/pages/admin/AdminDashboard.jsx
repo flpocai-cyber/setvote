@@ -5,7 +5,7 @@ import {
     Trophy, CheckCircle2, ListMusic, Music,
     Play, History,
     ExternalLink, FileText, Users, UserCircle, CalendarPlus,
-    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause
+    BarChart2, CheckCheck, MapPin, CalendarDays, Mic2, Share2, SkipForward, Headphones, Pause, Heart, Phone, MessageSquare
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ShowRegistrationModal from '../../components/admin/ShowRegistrationModal'
@@ -16,6 +16,7 @@ const AdminDashboard = () => {
     const { darkMode } = useTheme()
     const [songs, setSongs] = useState([])
     const [sponsors, setSponsors] = useState([])
+    const [dedications, setDedications] = useState([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState(null)
     const [profileCount, setProfileCount] = useState(0)
@@ -66,6 +67,14 @@ const AdminDashboard = () => {
             .order('is_master', { ascending: false })
             .order('display_order', { ascending: true })
         setSponsors(sponsorsData || [])
+
+        // Fetch pending dedications
+        const { data: dedicationsData } = await supabase
+            .from('dedications')
+            .select('*')
+            .eq('is_played', false)
+            .order('created_at', { ascending: true })
+        setDedications(dedicationsData || [])
 
         if (error) {
             console.error(error)
@@ -157,6 +166,11 @@ const AdminDashboard = () => {
             setAudioRef(newAudio)
             setPlayingId(song.id)
         }
+    }
+
+    const markDedicationPlayed = async (dedication) => {
+        await supabase.from('dedications').update({ is_played: true }).eq('id', dedication.id)
+        fetchSongs()
     }
 
     // ─── Cadastrar Show ────────────────────────────────────────────────
@@ -336,6 +350,61 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         {/* Left Column: Ranking */}
                         <div className="lg:col-span-8 space-y-8">
+
+                            {/* Dedicated Song Highlight */}
+                            {dedications.length > 0 && dedications.map((ded) => (
+                                <motion.div
+                                    key={ded.id}
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="relative overflow-hidden rounded-3xl border-2 border-gold-500 bg-gold-500/5 p-6 shadow-xl shadow-gold-500/10"
+                                >
+                                    <div className="absolute top-4 right-4">
+                                        <span className="bg-gold-500 text-charcoal-950 text-xs font-black px-3 py-1 rounded-full shadow-lg">
+                                            💝 DEDICADA
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-gold-500/20 flex items-center justify-center flex-shrink-0">
+                                            <Heart className="text-gold-500" size={24} fill="currentColor" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 pr-16">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-gold-500 mb-1">Próxima — Dedicação Paga</p>
+                                            <h3 className="text-2xl font-display font-bold text-white">{ded.song_title}</h3>
+                                            {ded.song_artist && <p className="text-gold-400 font-medium">{ded.song_artist}</p>}
+                                            <div className="mt-3 flex gap-4 flex-wrap">
+                                                <span className="flex items-center gap-1.5 text-sm text-charcoal-300">
+                                                    <span className="text-charcoal-500">👤</span> {ded.name}
+                                                </span>
+                                                <span className="flex items-center gap-1.5 text-sm text-charcoal-300">
+                                                    <Phone size={13} className="text-charcoal-500" /> {ded.phone}
+                                                </span>
+                                            </div>
+                                            {ded.message && (
+                                                <div className="mt-3 flex items-start gap-2 bg-white/5 rounded-xl p-3">
+                                                    <MessageSquare size={13} className="text-charcoal-500 mt-0.5 flex-shrink-0" />
+                                                    <p className="text-sm text-charcoal-300 italic">"{ded.message}"</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="mt-5 flex gap-3">
+                                        <button
+                                            onClick={() => markDedicationPlayed(ded)}
+                                            className="flex-1 gold-bg-gradient text-charcoal-950 font-bold px-6 py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.02] transition-all"
+                                        >
+                                            <Play size={18} fill="currentColor" /> Tocar Agora
+                                        </button>
+                                        {ded.receipt_url && (
+                                            <a href={ded.receipt_url} target="_blank" rel="noreferrer"
+                                                className="px-4 py-3.5 bg-charcoal-800 text-charcoal-400 border border-charcoal-700 rounded-2xl flex items-center gap-2 hover:text-gold-500 hover:border-gold-500/40 transition-all text-sm font-medium">
+                                                <FileText size={16} /> Comprovante
+                                            </a>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            ))}
+
                             {/* Top Voted Card */}
                             {topSong && (
                                 <motion.div

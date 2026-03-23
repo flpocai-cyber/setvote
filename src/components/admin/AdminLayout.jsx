@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Music, LayoutDashboard, Settings, LogOut,
-    Users, UserCircle, BarChart2, Share2, CalendarDays, Sun, Moon
+    Users, UserCircle, BarChart2, Share2, CalendarDays, Sun, Moon, Heart, CreditCard
 } from 'lucide-react'
 
 const navItems = [
@@ -14,6 +14,8 @@ const navItems = [
     { to: '/admin/estatisticas', icon: BarChart2, label: 'Estatísticas' },
     { to: '/admin/link-musicos', icon: Share2, label: 'Link para Músicos' },
     { to: '/admin/eventos-futuros', icon: CalendarDays, label: 'Eventos Futuros' },
+    { to: '/admin/dedique', icon: Heart, label: 'Dedique uma Canção' },
+    { to: '/admin/pagantes', icon: CreditCard, label: 'Pagantes' },
     { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
 ]
 

@@ -14,7 +14,8 @@ const AdminSettings = () => {
     const { darkMode } = useTheme()
     const [profile, setProfile] = useState({
         musician_name: '', welcome_text: '', voting_active: true,
-        profile_image_url: '', pix_key: '', pix_name: ''
+        profile_image_url: '', pix_key: '', pix_name: '',
+        dedication_price: 10, dedication_active: false
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -61,7 +62,8 @@ const AdminSettings = () => {
             const { error } = await supabase.from('profiles').upsert({
                 id: user.id, musician_name: profile.musician_name, welcome_text: profile.welcome_text,
                 voting_active: profile.voting_active, profile_image_url, pix_key: profile.pix_key,
-                pix_name: profile.pix_name, updated_at: new Date()
+                pix_name: profile.pix_name, dedication_price: profile.dedication_price,
+                dedication_active: profile.dedication_active, updated_at: new Date()
             })
             if (error) throw error
             alert('Perfil atualizado com sucesso!')
@@ -183,6 +185,36 @@ const AdminSettings = () => {
                                             value={profile.pix_name || ''} onChange={handleChange} placeholder="Ex: Rinaldo Zamai" />
                                     </div>
                                     <p className={`text-xs ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`}>Clique em "Salvar Alterações" acima para aplicar.</p>
+                                </div>
+                            </section>
+
+                            {/* Dedique uma Canção */}
+                            <section className={`rounded-3xl p-8 border ${t.section}`}>
+                                <div className="flex items-center space-x-3 mb-6">
+                                    <span className="text-gold-500 text-xl">💝</span>
+                                    <h2 className={`text-xl font-display font-bold ${t.sectionTitle}`}>Dedique uma Canção</h2>
+                                </div>
+                                <p className={`text-sm mb-6 leading-relaxed ${t.sub}`}>
+                                    Permita que visitantes dediquem músicas com pagamento via PIX. Defina o valor e ative o botão no painel público.
+                                </p>
+                                <div className="space-y-5">
+                                    <div className={`flex items-center justify-between p-4 rounded-2xl border ${darkMode ? 'border-charcoal-700 bg-charcoal-800/50' : 'border-gray-200 bg-gray-50'}`}>
+                                        <span className={`text-sm font-medium ${t.label}`}>Ativar no painel público</span>
+                                        <div className={`relative inline-block w-12 h-6 rounded-full ${t.toggleTrack}`}>
+                                            <input type="checkbox" name="dedication_active" id="dedication_active"
+                                                className="absolute w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer peer checked:translate-x-6 transition-all"
+                                                style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}
+                                                checked={!!profile.dedication_active} onChange={handleChange} />
+                                            <label htmlFor="dedication_active" className={`absolute inset-0 rounded-full cursor-pointer transition-colors ${profile.dedication_active ? 'bg-gold-500' : darkMode ? 'bg-charcoal-800' : 'bg-gray-300'}`}></label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-2 ${t.label}`}>Valor da Dedicação (R$)</label>
+                                        <input type="number" name="dedication_price" min="0" step="0.50"
+                                            className={`w-full border rounded-xl py-3 px-4 focus:outline-none transition-all ${t.input}`}
+                                            value={profile.dedication_price || ''} onChange={handleChange} placeholder="Ex: 10.00" />
+                                    </div>
+                                    <p className={`text-xs ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`}>A chave PIX usada será a mesma cadastrada acima. Clique em "Salvar Alterações" para aplicar.</p>
                                 </div>
                             </section>
                         </div>

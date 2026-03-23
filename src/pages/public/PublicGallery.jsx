@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import PublicLyricsModal from '../../components/public/PublicLyricsModal'
+import DedicateModal from '../../components/public/DedicateModal'
 
 const PublicGallery = () => {
     const [songs, setSongs] = useState([])
@@ -28,6 +29,7 @@ const PublicGallery = () => {
     const [showAllSongs, setShowAllSongs] = useState(false)
     const [showAbout, setShowAbout] = useState(false)
     const [showSocials, setShowSocials] = useState(false)
+    const [showDedicate, setShowDedicate] = useState(false)
     const [aboutPhotos, setAboutPhotos] = useState([])
     const [lightboxPhoto, setLightboxPhoto] = useState(null)
     const [pixCopied, setPixCopied] = useState(false)
@@ -401,6 +403,22 @@ const PublicGallery = () => {
                             </button>
                         )}
                     </div>
+
+                    {/* Dedique uma Canção — prominent button */}
+                    {profile?.dedication_active && (
+                        <div className="mt-6">
+                            <motion.button
+                                onClick={() => setShowDedicate(true)}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="gold-bg-gradient text-charcoal-950 font-black px-8 py-3.5 rounded-full text-base shadow-lg shadow-gold-500/30 flex items-center gap-2 mx-auto"
+                            >
+                                <span>💝</span>
+                                <span>Dedique uma Canção</span>
+                                <span className="text-xs font-bold opacity-70 ml-1">R$ {Number(profile.dedication_price || 10).toFixed(2).replace('.', ',')}</span>
+                            </motion.button>
+                        </div>
+                    )}
                 </div>
             </header>
 
@@ -961,6 +979,14 @@ const PublicGallery = () => {
                     onClose={() => setSelectedSongForLyrics(null)}
                 />
             )}
+
+            {/* Dedicate Modal */}
+            <DedicateModal
+                isOpen={showDedicate}
+                onClose={() => setShowDedicate(false)}
+                profile={profile}
+                songs={allSongs}
+            />
         </div>
     )
 }

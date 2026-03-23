@@ -18,6 +18,8 @@ import AdminEstatisticas from './pages/admin/AdminEstatisticas'
 import AdminShareLink from './pages/admin/AdminShareLink'
 import AdminFutureEvents from './pages/admin/AdminFutureEvents'
 import AdminEventList from './pages/admin/AdminEventList'
+import AdminDedications from './pages/admin/AdminDedications'
+import AdminPagantes from './pages/admin/AdminPagantes'
 import MusicianSetlist from './pages/public/MusicianSetlist'
 import PublicEventVoting from './pages/public/PublicEventVoting'
 
@@ -47,6 +49,8 @@ function App() {
               <Route path="/admin/link-musicos" element={<AdminShareLink />} />
               <Route path="/admin/eventos-futuros" element={<AdminFutureEvents />} />
               <Route path="/admin/evento/:token" element={<AdminEventList />} />
+              <Route path="/admin/dedique" element={<AdminDedications />} />
+              <Route path="/admin/pagantes" element={<AdminPagantes />} />
             </Route>
           </Routes>
         </BrowserRouter>
