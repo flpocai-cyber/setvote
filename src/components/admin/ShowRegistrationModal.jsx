@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { X, CalendarDays, MapPin, Music2, User, Users, Plus, Trash2, Link } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { X, CalendarDays, MapPin, Music2, User, Users, Plus, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '../../lib/supabase'
 
 const UF_LIST = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -26,6 +27,9 @@ const ShowRegistrationModal = ({ isOpen, onClose, onSave, sponsors = [] }) => {
     const [selectedSponsors, setSelectedSponsors] = useState([]) // [{id?, name, image_url, website_url}]
     const [showCustomForm, setShowCustomForm] = useState(false)
     const [customForm, setCustomForm] = useState({ name: '', image_url: '', website_url: '' })
+    const [customPreview, setCustomPreview] = useState(null)
+    const [uploadingCustom, setUploadingCustom] = useState(false)
+    const customFileRef = useRef(null)
 
     const handleChange = (e) => {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -51,6 +55,25 @@ const ShowRegistrationModal = ({ isOpen, onClose, onSave, sponsors = [] }) => {
         }
     }
 
+    const handleCustomFileChange = async (e) => {
+        const f = e.target.files?.[0]
+        if (!f) return
+        setUploadingCustom(true)
+        try {
+            const ext = f.name.split('.').pop()
+            const path = `sponsor_custom_${Date.now()}.${ext}`
+            const { error: upErr } = await supabase.storage.from('sponsors').upload(path, f)
+            if (upErr) throw upErr
+            const { data: { publicUrl } } = supabase.storage.from('sponsors').getPublicUrl(path)
+            setCustomForm(p => ({ ...p, image_url: publicUrl }))
+            setCustomPreview(URL.createObjectURL(f))
+        } catch (err) {
+            alert('Erro ao enviar imagem: ' + err.message)
+        } finally {
+            setUploadingCustom(false)
+        }
+    }
+
     const addCustomSponsor = () => {
         if (!customForm.name.trim() || !customForm.image_url.trim()) return
         if (selectedSponsors.length >= MAX_SHOW_SPONSORS) return
@@ -61,6 +84,7 @@ const ShowRegistrationModal = ({ isOpen, onClose, onSave, sponsors = [] }) => {
             website_url: customForm.website_url.trim()
         }])
         setCustomForm({ name: '', image_url: '', website_url: '' })
+        setCustomPreview(null)
         setShowCustomForm(false)
     }
 
@@ -289,13 +313,20 @@ const ShowRegistrationModal = ({ isOpen, onClose, onSave, sponsors = [] }) => {
                                                     onChange={e => setCustomForm(p => ({ ...p, name: e.target.value }))}
                                                     className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-charcoal-600 focus:outline-none focus:border-gold-500/50"
                                                 />
-                                                <input
-                                                    type="url"
-                                                    placeholder="URL da imagem/logo *"
-                                                    value={customForm.image_url}
-                                                    onChange={e => setCustomForm(p => ({ ...p, image_url: e.target.value }))}
-                                                    className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-charcoal-600 focus:outline-none focus:border-gold-500/50"
-                                                />
+                                                {/* Image Upload */}
+                                                <div
+                                                    onClick={() => customFileRef.current?.click()}
+                                                    className="w-full border-2 border-dashed border-charcoal-700 hover:border-gold-500/50 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors gap-2"
+                                                >
+                                                    {uploadingCustom ? (
+                                                        <><Loader2 className="animate-spin text-gold-500" size={24} /><p className="text-xs text-charcoal-500">Enviando...</p></>
+                                                    ) : customPreview ? (
+                                                        <><img src={customPreview} alt="preview" className="max-h-16 object-contain" /><p className="text-[10px] text-charcoal-500">Clique para trocar</p></>
+                                                    ) : (
+                                                        <><Upload className="text-charcoal-600" size={22} /><p className="text-xs text-charcoal-500">Clique para enviar logo *</p></>
+                                                    )}
+                                                </div>
+                                                <input ref={customFileRef} type="file" accept="image/*" className="hidden" onChange={handleCustomFileChange} />
                                                 <input
                                                     type="url"
                                                     placeholder="Site ou Instagram (opcional)"
