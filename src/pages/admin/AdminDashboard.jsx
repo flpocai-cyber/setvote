@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext'
 const AdminDashboard = () => {
     const { darkMode } = useTheme()
     const [songs, setSongs] = useState([])
+    const [sponsors, setSponsors] = useState([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState(null)
     const [profileCount, setProfileCount] = useState(0)
@@ -56,6 +57,15 @@ const AdminDashboard = () => {
 
         const { count, error: profileCountError } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
         if (!profileCountError) setProfileCount(count || 0)
+
+        // Fetch sponsors for show registration
+        const { data: sponsorsData } = await supabase
+            .from('sponsors')
+            .select('*')
+            .eq('is_active', true)
+            .order('is_master', { ascending: false })
+            .order('display_order', { ascending: true })
+        setSponsors(sponsorsData || [])
 
         if (error) {
             console.error(error)
@@ -159,6 +169,14 @@ const AdminDashboard = () => {
         const show = { ...form, file_key: fileKey }
         setActiveShow(show)
         localStorage.setItem('activeShow', JSON.stringify(show))
+
+        // Save event sponsors to profile in Supabase
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (authUser) {
+            await supabase.from('profiles').update({
+                event_sponsors: form.event_sponsors || []
+            }).eq('id', authUser.id)
+        }
     }
 
     // ─── Finalizar Show ────────────────────────────────────────────────
@@ -231,7 +249,8 @@ const AdminDashboard = () => {
             await supabase.from('profiles').upsert({
                 id: authUser.id,
                 last_reset_at: now,
-                updated_at: now
+                updated_at: now,
+                event_sponsors: []
             })
         }
 
@@ -575,6 +594,7 @@ const AdminDashboard = () => {
                 isOpen={showModalOpen}
                 onClose={() => setShowModalOpen(false)}
                 onSave={handleRegisterShow}
+                sponsors={sponsors}
             />
         </AdminLayout>
     )

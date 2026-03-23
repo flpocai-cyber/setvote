@@ -329,6 +329,33 @@ const PublicGallery = () => {
                     </div>
 
                     {/* 4 Action Buttons */}
+
+                    {/* Event Sponsors — right below the badge */}
+                    {profile?.event_sponsors?.length > 0 && (
+                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                            {profile.event_sponsors.map((sp, i) => (
+                                <motion.a
+                                    key={i}
+                                    href={sp.website_url || '#'}
+                                    target={sp.website_url ? '_blank' : '_self'}
+                                    rel="noopener noreferrer"
+                                    whileHover={{ scale: 1.06 }}
+                                    whileTap={{ scale: 0.96 }}
+                                    className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl border transition-all ${darkMode
+                                        ? 'bg-white/5 border-charcoal-700 hover:border-gold-500/40'
+                                        : 'bg-white border-gray-200 hover:border-gold-500/40 shadow-sm'
+                                    }`}
+                                    style={{ minWidth: '80px', maxWidth: '110px' }}
+                                >
+                                    <div className="h-10 flex items-center justify-center">
+                                        <img src={sp.image_url} alt={sp.name} className="max-h-full object-contain" style={{ maxWidth: '80px' }} />
+                                    </div>
+                                    <p className={`text-[10px] font-medium text-center leading-tight truncate w-full ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}>{sp.name}</p>
+                                </motion.a>
+                            ))}
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
                         {sponsors.length > 0 && (
                             <button
