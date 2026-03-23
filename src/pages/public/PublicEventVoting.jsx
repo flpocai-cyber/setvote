@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowRight, UserCircle } from 'lucide-react'
+import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowRight, UserCircle, Globe } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const PublicEventVoting = () => {
@@ -9,6 +9,7 @@ const PublicEventVoting = () => {
     const [event, setEvent] = useState(null)
     const [songs, setSongs] = useState([])
     const [votes, setVotes] = useState({}) // { songId: voteCount }
+    const [sponsors, setSponsors] = useState([])
     const [loading, setLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState(null)
     const [votingInProgress, setVotingInProgress] = useState(false)
@@ -50,10 +51,19 @@ const PublicEventVoting = () => {
             if (songsError) throw songsError
             setSongs(songsData || [])
 
-            // 3. Fetch current votes
+            // 3. Fetch active sponsors
+            const { data: sponsorsData } = await supabase
+                .from('sponsors')
+                .select('*')
+                .eq('is_active', true)
+                .order('is_master', { ascending: false })
+                .order('display_order', { ascending: true })
+            setSponsors(sponsorsData || [])
+
+            // 4. Fetch current votes
             await fetchVotes(eventData.id)
 
-            // 4. Subscribe to Realtime Updates for Votes
+            // 5. Subscribe to Realtime Updates for Votes
             subscribeToVotes(eventData.id)
 
         } catch (err) {
@@ -294,6 +304,68 @@ const PublicEventVoting = () => {
                         })}
                     </AnimatePresence>
                 </div>
+
+                {/* Patrocinadores */}
+                {sponsors.length > 0 && (
+                    <div className="mt-12 pb-4">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="flex-1 h-px bg-white/10" />
+                            <span className="text-xs font-black uppercase tracking-widest text-charcoal-500">Patrocinadores</span>
+                            <div className="flex-1 h-px bg-white/10" />
+                        </div>
+
+                        {/* Master Sponsors */}
+                        {sponsors.filter(s => s.is_master).length > 0 && (
+                            <div className="mb-4 space-y-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gold-500 mb-2">⭐ Apoio Master</p>
+                                {sponsors.filter(s => s.is_master).map(sponsor => (
+                                    <motion.a
+                                        key={sponsor.id}
+                                        href={sponsor.website_url || '#'}
+                                        target={sponsor.website_url ? '_blank' : '_self'}
+                                        rel="noopener noreferrer"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        className="flex flex-col items-center gap-2 bg-gold-500/5 hover:bg-gold-500/10 rounded-2xl p-5 border border-gold-500/20 hover:border-gold-500/40 transition-all w-full group"
+                                    >
+                                        <div className="h-20 flex items-center justify-center">
+                                            <img src={sponsor.image_url} alt={sponsor.name} className="max-h-full max-w-full object-contain" />
+                                        </div>
+                                        <p className="text-sm text-charcoal-300 group-hover:text-white font-semibold text-center transition-colors">{sponsor.name}</p>
+                                        {sponsor.website_url && <Globe size={12} className="text-gold-500/40 group-hover:text-gold-500 transition-colors" />}
+                                    </motion.a>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Normal Sponsors */}
+                        {sponsors.filter(s => !s.is_master).length > 0 && (
+                            <div>
+                                {sponsors.filter(s => s.is_master).length > 0 && (
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-charcoal-600 mb-2 mt-4">Apoio</p>
+                                )}
+                                <div className="grid grid-cols-2 gap-3">
+                                    {sponsors.filter(s => !s.is_master).map(sponsor => (
+                                        <motion.a
+                                            key={sponsor.id}
+                                            href={sponsor.website_url || '#'}
+                                            target={sponsor.website_url ? '_blank' : '_self'}
+                                            rel="noopener noreferrer"
+                                            whileHover={{ scale: 1.04 }}
+                                            whileTap={{ scale: 0.97 }}
+                                            className="flex flex-col items-center gap-2 bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-charcoal-800 hover:border-gold-500/30 transition-all group"
+                                        >
+                                            <div className="h-14 flex items-center justify-center w-full">
+                                                <img src={sponsor.image_url} alt={sponsor.name} className="max-h-full max-w-full object-contain" />
+                                            </div>
+                                            <p className="text-xs text-charcoal-500 group-hover:text-charcoal-300 font-medium text-center truncate w-full transition-colors">{sponsor.name}</p>
+                                        </motion.a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </main>
         </div>
     )

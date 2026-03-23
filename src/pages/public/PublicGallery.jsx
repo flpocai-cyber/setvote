@@ -399,24 +399,66 @@ const PublicGallery = () => {
                                     <X size={20} />
                                 </button>
                             </div>
-                            <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                {sponsors.map(sponsor => (
-                                    <motion.a
-                                        key={sponsor.id}
-                                        href={sponsor.website_url || '#'}
-                                        target={sponsor.website_url ? '_blank' : '_self'}
-                                        rel="noopener noreferrer"
-                                        whileHover={{ scale: 1.04 }}
-                                        whileTap={{ scale: 0.97 }}
-                                        className="flex flex-col items-center gap-3 bg-white/5 hover:bg-white/10 rounded-2xl p-4 border border-charcoal-700 hover:border-gold-500/30 transition-all cursor-pointer group"
-                                    >
-                                        <div className="w-full h-16 flex items-center justify-center">
-                                            <img src={sponsor.image_url} alt={sponsor.name} className="max-h-full max-w-full object-contain" />
+                            <div className="p-6 space-y-6">
+                                {/* Master Sponsors */}
+                                {sponsors.filter(s => s.is_master).length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gold-500">⭐ Apoio Master</span>
+                                            <div className="flex-1 h-px bg-gold-500/20" />
                                         </div>
-                                        <p className="text-xs text-charcoal-400 group-hover:text-charcoal-200 text-center font-medium truncate w-full transition-colors">{sponsor.name}</p>
-                                        {sponsor.website_url && <Globe size={10} className="text-charcoal-600 group-hover:text-gold-500 transition-colors" />}
-                                    </motion.a>
-                                ))}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {sponsors.filter(s => s.is_master).map(sponsor => (
+                                                <motion.a
+                                                    key={sponsor.id}
+                                                    href={sponsor.website_url || '#'}
+                                                    target={sponsor.website_url ? '_blank' : '_self'}
+                                                    rel="noopener noreferrer"
+                                                    whileHover={{ scale: 1.03 }}
+                                                    whileTap={{ scale: 0.97 }}
+                                                    className="col-span-2 flex flex-col items-center gap-3 bg-gold-500/5 hover:bg-gold-500/10 rounded-2xl p-5 border border-gold-500/25 hover:border-gold-500/50 transition-all cursor-pointer group"
+                                                >
+                                                    <div className="w-full h-24 flex items-center justify-center">
+                                                        <img src={sponsor.image_url} alt={sponsor.name} className="max-h-full max-w-full object-contain" />
+                                                    </div>
+                                                    <p className="text-sm text-charcoal-300 group-hover:text-white text-center font-semibold truncate w-full transition-colors">{sponsor.name}</p>
+                                                    {sponsor.website_url && <Globe size={12} className="text-gold-500/50 group-hover:text-gold-500 transition-colors" />}
+                                                </motion.a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Normal Sponsors */}
+                                {sponsors.filter(s => !s.is_master).length > 0 && (
+                                    <div>
+                                        {sponsors.filter(s => s.is_master).length > 0 && (
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-charcoal-500">Apoio</span>
+                                                <div className="flex-1 h-px bg-charcoal-800" />
+                                            </div>
+                                        )}
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                            {sponsors.filter(s => !s.is_master).map(sponsor => (
+                                                <motion.a
+                                                    key={sponsor.id}
+                                                    href={sponsor.website_url || '#'}
+                                                    target={sponsor.website_url ? '_blank' : '_self'}
+                                                    rel="noopener noreferrer"
+                                                    whileHover={{ scale: 1.04 }}
+                                                    whileTap={{ scale: 0.97 }}
+                                                    className="flex flex-col items-center gap-3 bg-white/5 hover:bg-white/10 rounded-2xl p-4 border border-charcoal-700 hover:border-gold-500/30 transition-all cursor-pointer group"
+                                                >
+                                                    <div className="w-full h-16 flex items-center justify-center">
+                                                        <img src={sponsor.image_url} alt={sponsor.name} className="max-h-full max-w-full object-contain" />
+                                                    </div>
+                                                    <p className="text-xs text-charcoal-400 group-hover:text-charcoal-200 text-center font-medium truncate w-full transition-colors">{sponsor.name}</p>
+                                                    {sponsor.website_url && <Globe size={10} className="text-charcoal-600 group-hover:text-gold-500 transition-colors" />}
+                                                </motion.a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>
