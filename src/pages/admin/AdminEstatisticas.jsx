@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth, storage } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
 import { useTheme } from '../../context/ThemeContext'
 import {
     BarChart2, Music, CalendarDays, Mic2, FileDown,
@@ -27,15 +30,29 @@ const AdminEstatisticas = () => {
 
     const fetchShows = async () => {
         setLoading(true)
-        const { data, error } = await supabase.from('shows').select('*').order('show_date', { ascending: false })
-        if (!error) setShows(data || [])
+        try {
+            const snapshot = await getDocs(query(collection(db, 'shows'), orderBy('show_date', 'desc')))
+            setShows(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch(error) {
+            const snapshot = await getDocs(collection(db, 'shows'))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => b.show_date.localeCompare(a.show_date))
+            setShows(d)
+        }
         setLoading(false)
     }
 
     const loadShowSongs = async (showId) => {
         if (showSongs[showId]) return
-        const { data } = await supabase.from('show_songs').select('*').eq('show_id', showId).order('votes', { ascending: false })
-        setShowSongs(prev => ({ ...prev, [showId]: data || [] }))
+        try {
+            const snapshot = await getDocs(query(collection(db, 'show_songs'), where('show_id', '==', showId), orderBy('votes', 'desc')))
+            setShowSongs(prev => ({ ...prev, [showId]: snapshot.docs.map(d => ({ id: d.id, ...d.data() })) }))
+        } catch(error) {
+            const snapshot = await getDocs(query(collection(db, 'show_songs'), where('show_id', '==', showId)))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => (b.votes || 0) - (a.votes || 0))
+            setShowSongs(prev => ({ ...prev, [showId]: d }))
+        }
     }
 
     const toggleExpand = async (showId) => {
@@ -51,9 +68,10 @@ const AdminEstatisticas = () => {
 
     const handleDelete = async (show) => {
         if (!window.confirm(`Tem certeza que deseja excluir permanentemente o show "${show.file_key}"?\n\nEsta ação não pode ser desfeita.`)) return
-        const { error } = await supabase.from('shows').delete().eq('id', show.id)
-        if (error) { alert('Erro ao excluir show: ' + error.message); return }
-        setShows(prev => prev.filter(s => s.id !== show.id))
+        try {
+            await deleteDoc(doc(db, 'shows', show.id))
+            setShows(prev => prev.filter(s => s.id !== show.id))
+        } catch(error) { alert('Erro ao excluir show: ' + error.message) }
     }
 
     const handleEditOpen = (show) => { setEditingShow({ ...show }); setIsEditModalOpen(true) }
@@ -64,8 +82,7 @@ const AdminEstatisticas = () => {
             const venuePart = editingShow.venue.replace(/\s+/g, '').substring(0, 10).toUpperCase()
             const [y, m, d] = editingShow.show_date.split('-')
             const newFileKey = `${venuePart}-${d}-${m}-${y.slice(2)}`
-            const { error } = await supabase.from('shows').update({ show_date: editingShow.show_date, venue: editingShow.venue, city: editingShow.city, state: editingShow.state, musician_name: editingShow.musician_name, file_key: newFileKey }).eq('id', editingShow.id)
-            if (error) throw error
+            await updateDoc(doc(db, 'shows', editingShow.id), { show_date: editingShow.show_date, venue: editingShow.venue, city: editingShow.city, state: editingShow.state, musician_name: editingShow.musician_name, file_key: newFileKey })
             setShows(prev => prev.map(s => s.id === editingShow.id ? { ...editingShow, file_key: newFileKey } : s))
             setIsEditModalOpen(false); alert('Show atualizado com sucesso.')
         } catch (err) { alert('Erro ao atualizar show: ' + err.message) }

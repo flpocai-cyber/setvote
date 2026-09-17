@@ -255,5 +255,51 @@ drop policy if exists "Admins can manage show_songs" on public.show_songs;
 create policy "Admins can manage show_songs" on public.show_songs
   for all to authenticated using (true) with check (true);
 
+-- ==================================================
+-- 18. Dedications — tabela de dedicações pagas
+-- ==================================================
 
+-- Tabela criada em runtime; aqui apenas garantimos RLS + policies idempotentes
+create table if not exists public.dedications (
+  id uuid default gen_random_uuid() primary key,
+  song_id uuid references public.songs(id) on delete set null,
+  song_title text not null,
+  song_artist text not null,
+  name text not null,
+  phone text not null,
+  message text default '',
+  receipt_url text,
+  is_played boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
+-- Habilita RLS (corrige o alerta de segurança do Supabase)
+alter table public.dedications enable row level security;
+
+-- Qualquer visitante pode inserir uma dedicação
+drop policy if exists "Anyone can insert dedications." on public.dedications;
+create policy "Anyone can insert dedications." on public.dedications
+  for insert with check (true);
+
+-- Usuários autenticados (admin) têm acesso total
+drop policy if exists "Admins can manage dedications" on public.dedications;
+create policy "Admins can manage dedications" on public.dedications
+  for all to authenticated using (true) with check (true);
+
+-- Storage bucket para comprovantes
+insert into storage.buckets (id, name, public) values ('dedications', 'dedications', true) on conflict (id) do nothing;
+
+-- Qualquer um pode fazer upload do comprovante (anon + authenticated)
+drop policy if exists "Anyone can upload dedications receipts" on storage.objects;
+create policy "Anyone can upload dedications receipts" on storage.objects
+  for insert with check (bucket_id = 'dedications');
+
+-- Leitura pública dos comprovantes
+drop policy if exists "Public Select Dedications" on storage.objects;
+create policy "Public Select Dedications" on storage.objects
+  for select using (bucket_id = 'dedications');
+
+-- Apenas admin pode deletar comprovantes
+drop policy if exists "Admin Delete Dedications" on storage.objects;
+create policy "Admin Delete Dedications" on storage.objects
+  for delete using (bucket_id = 'dedications' and auth.role() = 'authenticated');

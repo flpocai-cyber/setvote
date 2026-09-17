@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import {
+    collection, doc, query, where, orderBy, getDocs,
+    addDoc, updateDoc, increment, onSnapshot, getDoc
+} from 'firebase/firestore'
 import {
     Music, Star, FileText, ChevronRight, Search,
     Loader2, CheckCircle2, XCircle, Info, Heart,
@@ -81,33 +85,22 @@ const PublicGallery = () => {
 
     useEffect(() => {
         fetchData()
-        const subscription = subscribeToRealtime()
-        return () => supabase.removeChannel(subscription)
+        const unsubscribe = subscribeToRealtime()
+        return () => unsubscribe()
     }, [])
 
     const fetchData = async () => {
         setLoading(true)
 
-        // Fetch profile - pegamos o mais recente para evitar conflito se houver mais de um
-        const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('updated_at', { ascending: false })
-            .limit(1)
-            .single()
-
-        if (profileError) {
-            console.error('Erro ao buscar perfil:', profileError)
-            setFetchError(profileError.message)
-        }
-
-        if (profileData) {
+        // Fetch profile (primeiro documento de profiles)
+        const profilesSnap = await getDocs(collection(db, 'profiles'))
+        const profileDoc = profilesSnap.docs[0]
+        if (profileDoc) {
+            const profileData = { id: profileDoc.id, ...profileDoc.data() }
             const localResetAt = localStorage.getItem('last_reset_at')
             const dbResetAt = profileData.last_reset_at
 
-            // Comparamos as strings das datas. Se mudou, é um novo show.
             if (dbResetAt && localResetAt !== dbResetAt) {
-                console.log('Reset detectado - Limpando dados locais...')
                 localStorage.removeItem('voted_song_ids')
                 localStorage.removeItem('votes_submitted')
                 localStorage.removeItem('vote_session_id')
@@ -117,87 +110,82 @@ const PublicGallery = () => {
                 window.location.reload()
                 return
             }
-
             localStorage.setItem('last_reset_at', dbResetAt || '')
             setProfile(profileData)
         }
 
-        // Fetch active songs (for voting)
-        const { data: songsData } = await supabase
-            .from('songs')
-            .select('*')
-            .eq('is_active', true)
-            .eq('played', false)
-            .order('title', { ascending: true })
+        // Fetch active songs for voting (not played)
+        const songsSnap = await getDocs(
+            query(collection(db, 'songs'),
+                where('is_active', '==', true),
+                where('played', '==', false),
+                orderBy('title', 'asc'))
+        )
+        const songsData = songsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
-        // Fetch all songs (for the songs modal)
-        const { data: allSongsData } = await supabase
-            .from('songs')
-            .select('*')
-            .order('title', { ascending: true })
+        // Fetch all songs for the songs modal
+        const allSongsSnap = await getDocs(
+            query(collection(db, 'songs'), orderBy('title', 'asc'))
+        )
+        const allSongsData = allSongsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
         // Fetch active sponsors
-        const { data: sponsorsData } = await supabase
-            .from('sponsors')
-            .select('*')
-            .eq('is_active', true)
-            .order('display_order', { ascending: true })
-
-        setSongs(songsData || [])
-        setAllSongs(allSongsData || [])
-        setSponsors(sponsorsData || [])
+        const sponsorsSnap = await getDocs(
+            query(collection(db, 'sponsors'),
+                where('is_active', '==', true),
+                orderBy('display_order', 'asc'))
+        )
+        const sponsorsData = sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
         // Fetch about photos
-        const { data: aboutPhotosData } = await supabase
-            .from('about_photos')
-            .select('*')
-            .order('display_order', { ascending: true })
-        setAboutPhotos(aboutPhotosData || [])
+        const photosSnap = await getDocs(
+            query(collection(db, 'about_photos'), orderBy('display_order', 'asc'))
+        )
+        const aboutPhotosData = photosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
+        setSongs(songsData)
+        setAllSongs(allSongsData)
+        setSponsors(sponsorsData)
+        setAboutPhotos(aboutPhotosData)
         setLoading(false)
     }
 
     const subscribeToRealtime = () => {
-        return supabase
-            .channel('public-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, (payload) => {
-                if (payload.eventType === 'UPDATE') {
-                    setSongs(prev => {
-                        // Remove if played or inactivated
-                        if (payload.new.played || !payload.new.is_active) {
-                            return prev.filter(s => s.id !== payload.new.id)
-                        }
-                        // Update or Add
-                        const exists = prev.some(s => s.id === payload.new.id)
-                        if (exists) {
-                            return prev.map(s => s.id === payload.new.id ? payload.new : s)
-                        } else {
-                            return [...prev, payload.new].sort((a, b) => a.title.localeCompare(b.title))
-                        }
-                    })
-                }
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
-                if (payload.new) {
-                    const localResetAt = localStorage.getItem('last_reset_at')
-                    const dbResetAt = payload.new.last_reset_at
+        // Escuta mudanças nas músicas em tempo real
+        const unsubSongs = onSnapshot(
+            query(collection(db, 'songs'),
+                where('is_active', '==', true),
+                where('played', '==', false),
+                orderBy('title', 'asc')),
+            (snapshot) => {
+                const updatedSongs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                setSongs(updatedSongs)
+            }
+        )
 
-                    if (dbResetAt && dbResetAt !== localResetAt) {
-                        // Reset via Realtime! Forçamos a limpeza total
-                        localStorage.removeItem('voted_song_ids')
-                        localStorage.removeItem('votes_submitted')
-                        localStorage.removeItem('vote_session_id')
-                        localStorage.setItem('last_reset_at', dbResetAt)
-                        setSelectedSongIds([])
-                        setVotesSubmitted(false)
-                        window.location.reload()
-                        return
-                    }
-                    setProfile(payload.new)
+        // Escuta mudanças no perfil em tempo real (para detectar reset de votação)
+        const unsubProfile = onSnapshot(collection(db, 'profiles'), (snapshot) => {
+            if (!snapshot.empty) {
+                const profileData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() }
+                const localResetAt = localStorage.getItem('last_reset_at')
+                const dbResetAt = profileData.last_reset_at
+                if (dbResetAt && dbResetAt !== localResetAt) {
+                    localStorage.removeItem('voted_song_ids')
+                    localStorage.removeItem('votes_submitted')
+                    localStorage.removeItem('vote_session_id')
+                    localStorage.setItem('last_reset_at', dbResetAt)
+                    setSelectedSongIds([])
+                    setVotesSubmitted(false)
+                    window.location.reload()
+                    return
                 }
-            })
-            .subscribe()
+                setProfile(profileData)
+            }
+        })
+
+        return () => { unsubSongs(); unsubProfile() }
     }
+
 
     const MAX_VOTES = 5
 
@@ -229,16 +217,18 @@ const PublicGallery = () => {
         }
 
         for (const songId of selectedSongIds) {
-            const { error: insertError } = await supabase
-                .from('votes')
-                .insert({ song_id: songId, session_id: sessionId })
-
-            if (insertError) {
-                console.error('Vote storage error:', insertError)
+            try {
+                await addDoc(collection(db, 'votes'), {
+                    song_id: songId,
+                    session_id: sessionId,
+                    created_at: new Date().toISOString()
+                })
+                await updateDoc(doc(db, 'songs', songId), {
+                    votes: increment(1)
+                })
+            } catch (err) {
+                console.error('Erro ao votar:', err)
             }
-
-            const { error: rpcError } = await supabase.rpc('increment_vote', { song_id: songId })
-            if (rpcError) console.error('RPC Error:', rpcError)
         }
 
         localStorage.setItem('votes_submitted', 'true')

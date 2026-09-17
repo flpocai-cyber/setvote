@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, serverTimestamp } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
+import { getAuth } from 'firebase/auth'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import {
@@ -27,9 +30,10 @@ const AdminSettings = () => {
     const fetchProfile = async () => {
         if (!user) return
         setLoading(true)
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (error && error.code !== 'PGRST116') console.error('Error fetching profile:', error)
-        else if (data) setProfile(data)
+        try {
+            const docSnap = await getDoc(doc(db, 'profiles', user.uid || user.id))
+            if (docSnap.exists()) setProfile(docSnap.data())
+        } catch(error) { console.error('Error fetching profile:', error) }
         setLoading(false)
     }
 
@@ -52,20 +56,19 @@ const AdminSettings = () => {
         try {
             let profile_image_url = profile.profile_image_url
             if (file) {
-                const fileExt = file.name.split('.').pop()
-                const fileName = `${user.id}.${fileExt}`
-                const { error: uploadError } = await supabase.storage.from('profiles').upload(fileName, file, { upsert: true })
-                if (uploadError) throw uploadError
-                const { data: { publicUrl } } = supabase.storage.from('profiles').getPublicUrl(fileName)
-                profile_image_url = publicUrl
+                const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+                const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+                if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+                    throw new Error("Credenciais do Cloudinary não configuradas.")
+                }
+                profile_image_url = await uploadToCloudinary(file, cloudName, uploadPreset)
             }
-            const { error } = await supabase.from('profiles').upsert({
-                id: user.id, musician_name: profile.musician_name, welcome_text: profile.welcome_text,
+            await setDoc(doc(db, 'profiles', user.uid || user.id), {
+                musician_name: profile.musician_name, welcome_text: profile.welcome_text,
                 voting_active: profile.voting_active, profile_image_url, pix_key: profile.pix_key,
                 pix_name: profile.pix_name, dedication_price: profile.dedication_price,
-                dedication_active: profile.dedication_active, updated_at: new Date()
-            })
-            if (error) throw error
+                dedication_active: profile.dedication_active, updated_at: serverTimestamp()
+            }, { merge: true })
             alert('Perfil atualizado com sucesso!')
         } catch (err) {
             alert('Erro ao salvar perfil: ' + err.message)

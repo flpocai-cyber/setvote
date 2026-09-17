@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react'
 import { X, CalendarDays, MapPin, Music2, User, Users, Plus, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
 
 const UF_LIST = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -60,11 +62,13 @@ const ShowRegistrationModal = ({ isOpen, onClose, onSave, sponsors = [] }) => {
         if (!f) return
         setUploadingCustom(true)
         try {
-            const ext = f.name.split('.').pop()
-            const path = `sponsor_custom_${Date.now()}.${ext}`
-            const { error: upErr } = await supabase.storage.from('sponsors').upload(path, f)
-            if (upErr) throw upErr
-            const { data: { publicUrl } } = supabase.storage.from('sponsors').getPublicUrl(path)
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+            if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+                throw new Error("Credenciais do Cloudinary não configuradas.")
+            }
+
+            const publicUrl = await uploadToCloudinary(f, cloudName, uploadPreset)
             setCustomForm(p => ({ ...p, image_url: publicUrl }))
             setCustomPreview(URL.createObjectURL(f))
         } catch (err) {

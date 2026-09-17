@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Plus, Trash2, Upload, Loader2, Save,
@@ -27,11 +29,12 @@ const AdminAbout = () => {
 
     const fetchData = async () => {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = auth.currentUser
         if (!user) return
-        const { data: profile } = await supabase.from('profiles').select('id, about_text, instagram_url, facebook_url, youtube_url, x_url').eq('id', user.id).single()
-        if (profile) { 
-            setProfileId(profile.id)
+        const docSnap = await getDoc(doc(db, 'profiles', user.uid))
+        if (docSnap.exists()) {
+            const profile = docSnap.data()
+            setProfileId(user.uid)
             setAboutText(profile.about_text || '') 
             setSocialLinks({
                 instagram_url: profile.instagram_url || '',
@@ -45,23 +48,31 @@ const AdminAbout = () => {
     }
 
     const fetchPhotos = async () => {
-        const { data } = await supabase.from('about_photos').select('*').order('display_order', { ascending: true })
+        const q = query(collection(db, 'about_photos'), orderBy('display_order', 'asc'))
+        const snapshot = await getDocs(q)
+        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
         setPhotos(data || [])
     }
 
     const handleSaveText = async () => {
         if (!profileId) return
         setSavingText(true)
-        const { error } = await supabase.from('profiles').update({ about_text: aboutText }).eq('id', profileId)
-        if (error) alert('Erro ao salvar: ' + error.message)
+        try {
+            await updateDoc(doc(db, 'profiles', profileId), { about_text: aboutText })
+        } catch (error) {
+            alert('Erro ao salvar: ' + error.message)
+        }
         setSavingText(false)
     }
 
     const handleSaveSocial = async () => {
         if (!profileId) return
         setSavingSocial(true)
-        const { error } = await supabase.from('profiles').update(socialLinks).eq('id', profileId)
-        if (error) alert('Erro ao salvar redes sociais: ' + error.message)
+        try {
+            await updateDoc(doc(db, 'profiles', profileId), socialLinks)
+        } catch (error) {
+            alert('Erro ao salvar redes sociais: ' + error.message)
+        }
         setSavingSocial(false)
     }
 
@@ -75,13 +86,20 @@ const AdminAbout = () => {
         if (photos.length >= 50) { alert('Limite de 50 fotos atingido.'); return }
         setUploadingPhoto(true)
         try {
-            const ext = newFile.name.split('.').pop()
-            const path = `photo_${Date.now()}.${ext}`
-            const { error: upErr } = await supabase.storage.from('about-photos').upload(path, newFile)
-            if (upErr) throw upErr
-            const { data: { publicUrl } } = supabase.storage.from('about-photos').getPublicUrl(path)
-            const { error: insErr } = await supabase.from('about_photos').insert({ image_url: publicUrl, caption: newCaption, display_order: photos.length })
-            if (insErr) throw insErr
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+            if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+                throw new Error("Credenciais do Cloudinary não configuradas.")
+            }
+
+            const publicUrl = await uploadToCloudinary(newFile, cloudName, uploadPreset)
+            
+            await addDoc(collection(db, 'about_photos'), { 
+                image_url: publicUrl, 
+                caption: newCaption, 
+                display_order: photos.length,
+                createdAt: serverTimestamp()
+            })
             setNewFile(null); setNewPreview(null); setNewCaption('')
             if (fileRef.current) fileRef.current.value = ''
             await fetchPhotos()
@@ -91,9 +109,8 @@ const AdminAbout = () => {
 
     const handleDeletePhoto = async (photo) => {
         if (!window.confirm('Remover esta foto?')) return
-        const urlParts = photo.image_url.split('/about-photos/')
-        if (urlParts[1]) await supabase.storage.from('about-photos').remove([urlParts[1]])
-        await supabase.from('about_photos').delete().eq('id', photo.id)
+        // Cloudinary uploads deslogados não podem ser deletados via API facilmente, então só deletamos do db
+        await deleteDoc(doc(db, 'about_photos', photo.id))
         fetchPhotos()
     }
 
@@ -102,13 +119,13 @@ const AdminAbout = () => {
         const swap = index + dir
         if (swap < 0 || swap >= newPhotos.length) return;
         [newPhotos[index], newPhotos[swap]] = [newPhotos[swap], newPhotos[index]]
-        const updates = newPhotos.map((p, i) => supabase.from('about_photos').update({ display_order: i }).eq('id', p.id))
+        const updates = newPhotos.map((p, i) => updateDoc(doc(db, 'about_photos', p.id), { display_order: i }))
         await Promise.all(updates)
         fetchPhotos()
     }
 
     const updateCaption = async (photo, caption) => {
-        await supabase.from('about_photos').update({ caption }).eq('id', photo.id)
+        await updateDoc(doc(db, 'about_photos', photo.id), { caption })
         setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, caption } : p))
     }
 

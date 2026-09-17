@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { db, auth, storage } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
 import { useTheme } from '../../context/ThemeContext'
 import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowLeft, CheckCircle2, History, Play } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,39 +24,40 @@ const AdminEventList = () => {
     useEffect(() => { checkAuth() }, [])
 
     const checkAuth = async () => {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) navigate('/admin'); else fetchEventData()
+        const user = auth.currentUser
+        if (!user) navigate('/admin'); else fetchEventData()
     }
 
     const fetchEventData = async () => {
         setLoading(true)
         try {
-            const { data: eventData, error: eventError } = await supabase.from('future_events').select('*').eq('token', token).single()
-            if (eventError || !eventData) { alert('Evento não encontrado.'); navigate('/admin/eventos-futuros'); return }
+            const eventsSnap = await getDocs(query(collection(db, 'future_events'), where('token', '==', token), limit(1)))
+            if (eventsSnap.empty) { alert('Evento não encontrado.'); navigate('/admin/eventos-futuros'); return }
+            const eventData = { id: eventsSnap.docs[0].id, ...eventsSnap.docs[0].data() }
             setEvent(eventData)
-            const { data: songsData, error: songsError } = await supabase.from('songs').select('*').eq('is_active', true)
-            if (songsError) throw songsError
-            setSongs(songsData || [])
+            const songsSnap = await getDocs(query(collection(db, 'songs'), where('is_active', '==', true)))
+            setSongs(songsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
             await fetchVotes(eventData.id)
-            subscribeToVotes(eventData.id)
+            window._unsubscribeVotes = subscribeToVotes(eventData.id)
         } catch (err) { console.error(err); alert('Erro ao carregar os dados do evento.'); navigate('/admin/eventos-futuros') }
         finally { setLoading(false) }
     }
 
     const fetchVotes = async (eventId) => {
-        const { data } = await supabase.from('future_event_votes').select('song_id, votes').eq('event_id', eventId)
-        if (data) {
-            const votesMap = {}
-            data.forEach(v => { votesMap[v.song_id] = v.votes })
-            setVotes(votesMap)
-        }
+        const snapshot = await getDocs(query(collection(db, 'future_event_votes'), where('event_id', '==', eventId)))
+        const votesMap = {}
+        snapshot.docs.forEach(d => { votesMap[d.data().song_id] = d.data().votes })
+        setVotes(votesMap)
     }
 
     const subscribeToVotes = (eventId) => {
-        supabase.channel(`admin:event_votes:${eventId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'future_event_votes', filter: `event_id=eq.${eventId}` },
-                (payload) => { if (payload.new?.song_id) setVotes(prev => ({ ...prev, [payload.new.song_id]: payload.new.votes })) })
-            .subscribe()
+        return onSnapshot(query(collection(db, 'future_event_votes'), where('event_id', '==', eventId)), (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added' || change.type === 'modified') {
+                    setVotes(prev => ({ ...prev, [change.doc.data().song_id]: change.doc.data().votes }))
+                }
+            })
+        })
     }
 
     const togglePlayed = (songId) => {
@@ -64,9 +68,14 @@ const AdminEventList = () => {
         if (!window.confirm('Tem certeza que deseja exportar esses votos para o seu Dashboard principal e iniciar um Show agora?\n\nIsso substituirá a setlist ao vivo atual e zerará os votos anteriores da tela inicial.')) return
         try {
             setLoading(true)
-            await supabase.from('songs').update({ votes: 0, played: false, play_order: null }).neq('id', '00000000-0000-0000-0000-000000000000')
+            const songsSnap = await getDocs(collection(db, 'songs'))
+            for (let d of songsSnap.docs) {
+                if (d.id !== '00000000-0000-0000-0000-000000000000') {
+                    await updateDoc(doc(db, 'songs', d.id), { votes: 0, played: false, play_order: null })
+                }
+            }
             const votedSongs = songs.filter(song => votes[song.id] > 0)
-            await Promise.all(votedSongs.map(song => supabase.from('songs').update({ votes: votes[song.id] }).eq('id', song.id)))
+            await Promise.all(votedSongs.map(song => updateDoc(doc(db, 'songs', song.id), { votes: votes[song.id] })))
             const fileKey = `${event.title.replace(/\s+/g, '').substring(0, 10).toUpperCase()}-EVENTO`
             localStorage.setItem('activeShow', JSON.stringify({ show_date: event.event_date.split('T')[0], venue: event.venue || 'Evento', city: '', state: '', musician_name: '', file_key: fileKey }))
             navigate('/admin/dashboard')

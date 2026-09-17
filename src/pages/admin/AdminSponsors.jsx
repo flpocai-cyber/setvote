@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth } from '../../lib/firebase'
+import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Plus, Trash2, Upload, Globe, Eye, EyeOff,
@@ -27,8 +29,18 @@ const AdminSponsors = () => {
 
     const fetchSponsors = async () => {
         setLoading(true)
-        const { data, error } = await supabase.from('sponsors').select('*').order('is_master', { ascending: false }).order('display_order', { ascending: true })
-        if (!error) setSponsors(data || [])
+        try {
+            const snapshot = await getDocs(query(collection(db, 'sponsors'), orderBy('is_master', 'desc'), orderBy('display_order', 'asc')))
+            setSponsors(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch (error) {
+            const snapshot = await getDocs(collection(db, 'sponsors'))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => {
+                if(b.is_master !== a.is_master) return b.is_master ? 1 : -1;
+                return (a.display_order||0) - (b.display_order||0);
+            })
+            setSponsors(d)
+        }
         setLoading(false)
     }
 
@@ -48,20 +60,23 @@ const AdminSponsors = () => {
         if (!form.is_master && normalCount >= MAX_NORMAL) { alert(`Máximo de ${MAX_NORMAL} patrocinadores normais atingido.`); return }
         setSaving(true)
         try {
-            const ext = file.name.split('.').pop()
-            const path = `sponsor_${Date.now()}.${ext}`
-            const { error: upErr } = await supabase.storage.from('sponsors').upload(path, file)
-            if (upErr) throw upErr
-            const { data: { publicUrl } } = supabase.storage.from('sponsors').getPublicUrl(path)
-            const { error: insErr } = await supabase.from('sponsors').insert({
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+            if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+                throw new Error("Credenciais do Cloudinary não configuradas.")
+            }
+
+            const publicUrl = await uploadToCloudinary(file, cloudName, uploadPreset)
+
+            await addDoc(collection(db, 'sponsors'), {
                 name: form.name,
                 image_url: publicUrl,
                 website_url: form.website_url,
                 is_active: form.is_active,
                 is_master: form.is_master,
-                display_order: sponsors.length
+                display_order: sponsors.length,
+                createdAt: serverTimestamp()
             })
-            if (insErr) throw insErr
             setForm({ name: '', website_url: '', is_active: true, is_master: false })
             setFile(null); setPreview(null); setShowForm(false)
             fetchSponsors()
@@ -71,7 +86,7 @@ const AdminSponsors = () => {
     }
 
     const toggleActive = async (sponsor) => {
-        await supabase.from('sponsors').update({ is_active: !sponsor.is_active }).eq('id', sponsor.id)
+        await updateDoc(doc(db, 'sponsors', sponsor.id), { is_active: !sponsor.is_active })
         fetchSponsors()
     }
 
@@ -85,15 +100,13 @@ const AdminSponsors = () => {
             alert(`Máximo de ${MAX_NORMAL} patrocinadores normais atingido.`)
             return
         }
-        await supabase.from('sponsors').update({ is_master: becomingMaster }).eq('id', sponsor.id)
+        await updateDoc(doc(db, 'sponsors', sponsor.id), { is_master: becomingMaster })
         fetchSponsors()
     }
 
     const deleteSponsor = async (sponsor) => {
         if (!window.confirm(`Remover "${sponsor.name}"?`)) return
-        const urlParts = sponsor.image_url.split('/sponsors/')
-        if (urlParts[1]) await supabase.storage.from('sponsors').remove([urlParts[1]])
-        await supabase.from('sponsors').delete().eq('id', sponsor.id)
+        await deleteDoc(doc(db, 'sponsors', sponsor.id))
         fetchSponsors()
     }
 
@@ -102,7 +115,7 @@ const AdminSponsors = () => {
         const swap = index + dir
         if (swap < 0 || swap >= newSponsors.length) return;
         [newSponsors[index], newSponsors[swap]] = [newSponsors[swap], newSponsors[index]]
-        const updates = newSponsors.map((s, i) => supabase.from('sponsors').update({ display_order: i }).eq('id', s.id))
+        const updates = newSponsors.map((s, i) => updateDoc(doc(db, 'sponsors', s.id), { display_order: i }))
         await Promise.all(updates)
         fetchSponsors()
     }

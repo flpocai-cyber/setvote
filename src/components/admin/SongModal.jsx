@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { X, FileText, Music, Loader2, Image as ImageIcon, Headphones } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
 
 const SongModal = ({ isOpen, song, onClose, onSave }) => {
     const [formData, setFormData] = useState({
@@ -12,11 +14,7 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
         category: '',
         is_active: true
     })
-    const [files, setFiles] = useState({
-        cover: null,
-        sheet: null,
-        playback: null
-    })
+    const [files, setFiles] = useState({ cover: null, sheet: null, playback: null })
     const [loading, setLoading] = useState(false)
     const [uploadProgress, setUploadProgress] = useState(null)
 
@@ -32,15 +30,15 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                 is_active: song.is_active ?? true,
                 playback_url: song.playback_url || ''
             })
+        } else {
+            setFormData({ title: '', artist: '', lyrics: '', tone: '', bpm: '', category: '', is_active: true })
+            setFiles({ cover: null, sheet: null, playback: null })
         }
-    }, [song])
+    }, [song, isOpen])
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }))
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
     }
 
     const handleFileChange = (e) => {
@@ -50,23 +48,14 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
         }
     }
 
-    const uploadFile = async (file, bucket) => {
+    const uploadFile = async (file) => {
         if (!file) return null
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${fileName}`
-
-        const { error: uploadError, data } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file)
-
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl } } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath)
-
-        return publicUrl
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+        if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+            throw new Error("Credenciais do Cloudinary não configuradas.")
+        }
+        return await uploadToCloudinary(file, cloudName, uploadPreset)
     }
 
     const handleSubmit = async (e) => {
@@ -74,22 +63,21 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
         setLoading(true)
 
         try {
-            let cover_image_url = song?.cover_image_url
-            let sheet_music_url = song?.sheet_music_url
+            let cover_image_url = song?.cover_image_url || null
+            let sheet_music_url = song?.sheet_music_url || null
             let playback_url = song?.playback_url || formData.playback_url || null
 
-            // Upload files if selected
             if (files.cover) {
                 setUploadProgress('Fazendo upload da capa...')
-                cover_image_url = await uploadFile(files.cover, 'covers')
+                cover_image_url = await uploadFile(files.cover)
             }
             if (files.sheet) {
                 setUploadProgress('Fazendo upload da partitura...')
-                sheet_music_url = await uploadFile(files.sheet, 'sheets')
+                sheet_music_url = await uploadFile(files.sheet)
             }
             if (files.playback) {
                 setUploadProgress('Fazendo upload do playback...')
-                playback_url = await uploadFile(files.playback, 'playbacks')
+                playback_url = await uploadFile(files.playback)
             }
 
             setUploadProgress('Salvando dados...')
@@ -100,20 +88,19 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                 cover_image_url,
                 sheet_music_url,
                 playback_url,
-                bpm: formData.bpm ? parseInt(formData.bpm) : null
+                bpm: formData.bpm ? parseInt(formData.bpm) : null,
+                votes: song?.votes ?? 0,
+                played: song?.played ?? false,
+                is_active: formData.is_active ?? true,
             }
 
             if (song) {
-                const { error } = await supabase
-                    .from('songs')
-                    .update(songData)
-                    .eq('id', song.id)
-                if (error) throw error
+                await updateDoc(doc(db, 'songs', song.id), songData)
             } else {
-                const { error } = await supabase
-                    .from('songs')
-                    .insert([songData])
-                if (error) throw error
+                await addDoc(collection(db, 'songs'), {
+                    ...songData,
+                    createdAt: serverTimestamp()
+                })
             }
 
             onSave()
@@ -175,34 +162,15 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-charcoal-300 mb-2">Tom</label>
-                                    <input
-                                        type="text"
-                                        name="tone"
-                                        className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50 text-center"
-                                        placeholder="Am"
-                                        value={formData.tone}
-                                        onChange={handleChange}
-                                    />
+                                    <input type="text" name="tone" className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50 text-center" placeholder="Am" value={formData.tone} onChange={handleChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-charcoal-300 mb-2">BPM</label>
-                                    <input
-                                        type="number"
-                                        name="bpm"
-                                        className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50 text-center"
-                                        placeholder="120"
-                                        value={formData.bpm}
-                                        onChange={handleChange}
-                                    />
+                                    <input type="number" name="bpm" className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50 text-center" placeholder="120" value={formData.bpm} onChange={handleChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-charcoal-300 mb-2">Gênero</label>
-                                    <select
-                                        name="category"
-                                        className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                    >
+                                    <select name="category" className="w-full bg-charcoal-800 border border-charcoal-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-gold-500/50" value={formData.category} onChange={handleChange}>
                                         <option value="">Selecione</option>
                                         <option value="Rock">Rock</option>
                                         <option value="Pop">Pop</option>
@@ -214,69 +182,37 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                             </div>
 
                             <div className="flex items-center space-x-3 bg-charcoal-800 p-4 rounded-xl border border-charcoal-700">
-                                <input
-                                    type="checkbox"
-                                    id="is_active"
-                                    name="is_active"
-                                    className="w-5 h-5 accent-gold-500 rounded border-charcoal-600 bg-charcoal-900"
-                                    checked={formData.is_active}
-                                    onChange={handleChange}
-                                />
-                                <label htmlFor="is_active" className="text-charcoal-300 font-medium cursor-pointer">
-                                    Disponível para votação do público
-                                </label>
+                                <input type="checkbox" id="is_active" name="is_active" className="w-5 h-5 accent-gold-500 rounded border-charcoal-600 bg-charcoal-900" checked={formData.is_active} onChange={handleChange} />
+                                <label htmlFor="is_active" className="text-charcoal-300 font-medium cursor-pointer">Disponível para votação do público</label>
                             </div>
 
                             <div className="space-y-4">
                                 <div className="p-4 border border-dashed border-charcoal-700 rounded-xl">
                                     <label className="block text-sm font-medium text-charcoal-400 mb-3 flex items-center space-x-2">
-                                        <ImageIcon size={18} />
-                                        <span>Capa da Música (JPG/PNG)</span>
+                                        <ImageIcon size={18} /><span>Capa da Música (JPG/PNG)</span>
                                     </label>
-                                    <input
-                                        type="file"
-                                        name="cover"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                        className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20"
-                                    />
+                                    <input type="file" name="cover" accept="image/*" onChange={handleFileChange} className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20" />
                                 </div>
 
                                 <div className="p-4 border border-dashed border-charcoal-700 rounded-xl">
                                     <label className="block text-sm font-medium text-charcoal-400 mb-3 flex items-center space-x-2">
-                                        <FileText size={18} />
-                                        <span>Partitura (PDF)</span>
+                                        <FileText size={18} /><span>Partitura (PDF)</span>
                                     </label>
-                                    <input
-                                        type="file"
-                                        name="sheet"
-                                        accept=".pdf"
-                                        onChange={handleFileChange}
-                                        className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20"
-                                    />
+                                    <input type="file" name="sheet" accept=".pdf" onChange={handleFileChange} className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20" />
                                 </div>
 
                                 <div className="p-4 border border-dashed border-charcoal-700 rounded-xl">
                                     <label className="block text-sm font-medium text-charcoal-400 mb-3 flex items-center space-x-2">
-                                        <Headphones size={18} />
-                                        <span>Playback (MP3/WAV)</span>
+                                        <Headphones size={18} /><span>Playback (MP3/WAV)</span>
                                     </label>
                                     {song?.playback_url && !files.playback && (
                                         <div className="flex items-center gap-2 mb-2">
                                             <audio controls src={song.playback_url} className="h-8 w-full" style={{ filter: 'invert(0.8) sepia(1) hue-rotate(10deg)' }} />
                                         </div>
                                     )}
-                                    <input
-                                        type="file"
-                                        name="playback"
-                                        accept=".mp3,.wav,audio/mpeg,audio/wav"
-                                        onChange={handleFileChange}
-                                        className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20"
-                                    />
+                                    <input type="file" name="playback" accept=".mp3,.wav,audio/mpeg,audio/wav" onChange={handleFileChange} className="text-xs text-charcoal-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gold-500/10 file:text-gold-500 hover:file:bg-gold-500/20" />
                                     {files.playback && (
-                                        <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
-                                            <span>✓</span> {files.playback.name}
-                                        </p>
+                                        <p className="text-xs text-green-400 mt-2 flex items-center gap-1"><span>✓</span> {files.playback.name}</p>
                                     )}
                                 </div>
                             </div>
@@ -296,23 +232,14 @@ const SongModal = ({ isOpen, song, onClose, onSave }) => {
                     </div>
 
                     <div className="mt-8 flex items-center justify-end space-x-4 border-t border-charcoal-800 pt-8">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-6 py-3 text-charcoal-400 hover:text-white transition-colors"
-                        >
-                            Cancelar
-                        </button>
+                        <button type="button" onClick={onClose} className="px-6 py-3 text-charcoal-400 hover:text-white transition-colors">Cancelar</button>
                         <button
                             type="submit"
                             disabled={loading}
                             className="gold-bg-gradient text-charcoal-950 font-bold px-8 py-3 rounded-xl shadow-lg shadow-gold-500/20 hover:scale-[1.02] transition-all flex items-center space-x-2 disabled:opacity-50"
                         >
                             {loading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    <span>{uploadProgress || 'Favor aguarde...'}</span>
-                                </>
+                                <><Loader2 className="w-5 h-5 animate-spin" /><span>{uploadProgress || 'Favor aguarde...'}</span></>
                             ) : (
                                 <span>{song ? 'Atualizar Música' : 'Salvar Música'}</span>
                             )}

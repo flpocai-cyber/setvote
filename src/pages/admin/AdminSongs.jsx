@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth, storage } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
 import {
     Plus, Search, Edit2, Trash2,
     Music, CheckCircle2, XCircle, Loader2
@@ -20,29 +23,33 @@ const AdminSongs = () => {
 
     const fetchSongs = async () => {
         setLoading(true)
-        const { data, error } = await supabase
-            .from('songs')
-            .select('*')
-            .order('title', { ascending: true })
-        if (!error) setSongs(data)
+        try {
+            const snapshot = await getDocs(query(collection(db, 'songs'), orderBy('title', 'asc')))
+            setSongs(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch(e) {
+            // fallback
+            const snapshot = await getDocs(collection(db, 'songs'))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => a.title.localeCompare(b.title))
+            setSongs(d)
+        }
         setLoading(false)
     }
 
     const handleDelete = async (id) => {
         if (window.confirm('Tem certeza que deseja excluir esta música?')) {
-            const { error } = await supabase.from('songs').delete().eq('id', id)
-            if (error) { alert('Erro ao excluir música') }
-            else { setSongs(songs.filter(s => s.id !== id)) }
+            try {
+                await deleteDoc(doc(db, 'songs', id))
+                setSongs(songs.filter(s => s.id !== id))
+            } catch(error) { alert('Erro ao excluir música') }
         }
     }
 
     const handleToggleActive = async (song) => {
-        const { error } = await supabase
-            .from('songs')
-            .update({ is_active: !song.is_active })
-            .eq('id', song.id)
-        if (error) { alert('Erro ao atualizar status') }
-        else { setSongs(songs.map(s => s.id === song.id ? { ...s, is_active: !s.is_active } : s)) }
+        try {
+            await updateDoc(doc(db, 'songs', song.id), { is_active: !song.is_active })
+            setSongs(songs.map(s => s.id === song.id ? { ...s, is_active: !s.is_active } : s))
+        } catch(error) { alert('Erro ao atualizar status') }
     }
 
     const filteredSongs = songs.filter(song =>

@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react'
 import { X, Copy, Upload, Loader2, Check, Search, Music } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import { collection, addDoc } from 'firebase/firestore'
+import { uploadToCloudinary } from '../../lib/cloudinary'
 
 const DedicateModal = ({ isOpen, onClose, profile, songs = [] }) => {
     const [form, setForm] = useState({ name: '', phone: '', message: '' })
@@ -40,11 +42,14 @@ const DedicateModal = ({ isOpen, onClose, profile, songs = [] }) => {
         if (!f) return
         setReceiptUploading(true)
         try {
-            const ext = f.name.split('.').pop()
-            const path = `receipt_${Date.now()}.${ext}`
-            const { error } = await supabase.storage.from('dedications').upload(path, f)
-            if (error) throw error
-            const { data: { publicUrl } } = supabase.storage.from('dedications').getPublicUrl(path)
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+            
+            if (!cloudName || !uploadPreset || cloudName === 'COLE_AQUI') {
+                throw new Error("Credenciais do Cloudinary não configuradas.")
+            }
+
+            const publicUrl = await uploadToCloudinary(f, cloudName, uploadPreset)
             setReceiptUrl(publicUrl)
             setReceiptName(f.name)
         } catch (err) {
@@ -58,7 +63,7 @@ const DedicateModal = ({ isOpen, onClose, profile, songs = [] }) => {
         if (!canSubmit) return
         setSending(true)
         try {
-            const { error } = await supabase.from('dedications').insert({
+            await addDoc(collection(db, 'dedications'), {
                 song_id: selectedSong.id,
                 song_title: selectedSong.title,
                 song_artist: selectedSong.artist,
@@ -66,8 +71,9 @@ const DedicateModal = ({ isOpen, onClose, profile, songs = [] }) => {
                 phone: form.phone.trim(),
                 message: form.message.trim(),
                 receipt_url: receiptUrl,
+                is_played: false,
+                created_at: new Date().toISOString(),
             })
-            if (error) throw error
             setSent(true)
         } catch (err) {
             alert('Erro ao enviar: ' + err.message)

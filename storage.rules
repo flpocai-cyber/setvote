@@ -1,0 +1,47 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Imagens de capa das músicas — admin escreve, todos leem
+    match /covers/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Partituras — admin escreve, todos leem
+    match /sheets/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Foto de perfil do músico — admin escreve, todos leem
+    match /profiles/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Logos dos patrocinadores — admin escreve, todos leem
+    match /sponsors/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Fotos do "Sobre o Músico" — admin escreve/deleta, todos leem
+    match /about-photos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Comprovantes de dedicação — qualquer um faz upload, admin deleta
+    match /dedications/{allPaths=**} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Arquivos de playback — admin escreve, todos leem
+    match /playback/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

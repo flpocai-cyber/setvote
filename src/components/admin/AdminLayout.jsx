@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Music, LayoutDashboard, Settings, LogOut,
@@ -20,6 +20,7 @@ const navItems = [
 ]
 
 const AdminLayout = ({ children, activePath }) => {
+    const { signOut } = useAuth()
     const { darkMode, toggleDarkMode } = useTheme()
     const location = useLocation()
     const currentPath = activePath || location.pathname
@@ -72,7 +73,7 @@ const AdminLayout = ({ children, activePath }) => {
 
                 <div className="p-4 mt-auto">
                     <button
-                        onClick={() => supabase.auth.signOut()}
+                        onClick={signOut}
                         className={`flex items-center space-x-3 px-4 py-3 transition-colors w-full rounded-xl text-sm font-medium hover:text-red-400 ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}
                     >
                         <LogOut size={20} />

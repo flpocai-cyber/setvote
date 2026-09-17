@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { db, auth, storage } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
 import { useTheme } from '../../context/ThemeContext'
 import {
     CreditCard, CheckCircle, Clock, FileText, Trash2, Loader2, Phone, User, MessageSquare, Music
@@ -16,28 +19,32 @@ const AdminPagantes = () => {
 
     const fetchDedications = async () => {
         setLoading(true)
-        const { data } = await supabase
-            .from('dedications')
-            .select('*')
-            .order('created_at', { ascending: false })
-        setDedications(data || [])
+        try {
+            const snapshot = await getDocs(query(collection(db, 'dedications'), orderBy('created_at', 'desc')))
+            setDedications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch(e) {
+            const snapshot = await getDocs(collection(db, 'dedications'))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => b.created_at?.toMillis() - a.created_at?.toMillis() || 0)
+            setDedications(d)
+        }
         setLoading(false)
     }
 
     const markAsPlayed = async (id) => {
-        await supabase.from('dedications').update({ is_played: true }).eq('id', id)
+        await updateDoc(doc(db, 'dedications', id), { is_played: true })
         fetchDedications()
     }
 
     const deleteReceipt = async (dedication) => {
         if (!window.confirm('Excluir comprovante? Os dados do pagante serão mantidos.')) return
         if (dedication.receipt_url) {
-            const urlParts = dedication.receipt_url.split('/dedications/')
-            if (urlParts[1]) {
-                await supabase.storage.from('dedications').remove([urlParts[1]])
+            const fileNameMatch = dedication.receipt_url.match(/dedications(?:%2F|\/)([^?]+)/)
+            if (fileNameMatch && fileNameMatch[1]) {
+                await deleteObject(ref(storage, 'dedications/' + fileNameMatch[1]))
             }
         }
-        await supabase.from('dedications').update({ receipt_url: null }).eq('id', dedication.id)
+        await updateDoc(doc(db, 'dedications', dedication.id), { receipt_url: null })
         fetchDedications()
     }
 

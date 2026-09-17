@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import {
+    collection, query, where, getDocs, orderBy,
+    doc, updateDoc, increment, onSnapshot, addDoc
+} from 'firebase/firestore'
 import { Music, CalendarDays, MapPin, Loader2, Trophy, ArrowRight, UserCircle, Globe } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -15,9 +19,7 @@ const PublicEventVoting = () => {
     const [votingInProgress, setVotingInProgress] = useState(false)
 
     useEffect(() => {
-        if (token) {
-            fetchEventData()
-        }
+        if (token) fetchEventData()
     }, [token])
 
     const fetchEventData = async () => {
@@ -25,90 +27,59 @@ const PublicEventVoting = () => {
         setErrorMsg(null)
 
         try {
-            // 1. Fetch Event Profile
-            const { data: eventData, error: eventError } = await supabase
-                .from('future_events')
-                .select('*')
-                .eq('token', token)
-                .eq('is_active', true)
-                .single()
+            // 1. Fetch event by token
+            const eventsSnap = await getDocs(
+                query(collection(db, 'future_events'),
+                    where('token', '==', token),
+                    where('is_active', '==', true))
+            )
 
-            if (eventError || !eventData) {
+            if (eventsSnap.empty) {
                 setErrorMsg('Evento não encontrado ou votação encerrada.')
                 setLoading(false)
                 return
             }
 
+            const eventData = { id: eventsSnap.docs[0].id, ...eventsSnap.docs[0].data() }
             setEvent(eventData)
 
-            // 2. Fetch all active songs from the musician
-            const { data: songsData, error: songsError } = await supabase
-                .from('songs')
-                .select('*')
-                .eq('is_active', true)
-                .order('title', { ascending: true })
+            // 2. Fetch active songs
+            const songsSnap = await getDocs(
+                query(collection(db, 'songs'),
+                    where('is_active', '==', true),
+                    orderBy('title', 'asc'))
+            )
+            setSongs(songsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
-            if (songsError) throw songsError
-            setSongs(songsData || [])
+            // 3. Fetch sponsors
+            const sponsorsSnap = await getDocs(
+                query(collection(db, 'sponsors'),
+                    where('is_active', '==', true),
+                    orderBy('display_order', 'asc'))
+            )
+            setSponsors(sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
-            // 3. Fetch active sponsors
-            const { data: sponsorsData } = await supabase
-                .from('sponsors')
-                .select('*')
-                .eq('is_active', true)
-                .order('is_master', { ascending: false })
-                .order('display_order', { ascending: true })
-            setSponsors(sponsorsData || [])
+            // 4. Subscribe realtime to event votes
+            const unsubVotes = onSnapshot(
+                query(collection(db, 'event_votes'), where('event_id', '==', eventData.id)),
+                (snap) => {
+                    const votesMap = {}
+                    snap.docs.forEach(d => {
+                        const v = d.data()
+                        votesMap[v.song_id] = (votesMap[v.song_id] || 0) + 1
+                    })
+                    setVotes(votesMap)
+                }
+            )
 
-            // 4. Fetch current votes
-            await fetchVotes(eventData.id)
-
-            // 5. Subscribe to Realtime Updates for Votes
-            subscribeToVotes(eventData.id)
+            // Store unsubscribe for cleanup (not returned here — use ref if needed)
+            setLoading(false)
 
         } catch (err) {
             console.error(err)
             setErrorMsg('Erro ao carregar os dados do evento.')
-        } finally {
             setLoading(false)
         }
-    }
-
-    const fetchVotes = async (eventId) => {
-        const { data } = await supabase
-            .from('future_event_votes')
-            .select('song_id, votes')
-            .eq('event_id', eventId)
-
-        if (data) {
-            const votesMap = {}
-            data.forEach(v => {
-                votesMap[v.song_id] = v.votes
-            })
-            setVotes(votesMap)
-        }
-    }
-
-    const subscribeToVotes = (eventId) => {
-        supabase.channel(`public:event_votes:${eventId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'future_event_votes',
-                    filter: `event_id=eq.${eventId}`
-                },
-                (payload) => {
-                    if (payload.new && payload.new.song_id) {
-                        setVotes(prev => ({
-                            ...prev,
-                            [payload.new.song_id]: payload.new.votes
-                        }))
-                    }
-                }
-            )
-            .subscribe()
     }
 
     const handleVote = async (songId) => {
@@ -116,28 +87,15 @@ const PublicEventVoting = () => {
         setVotingInProgress(true)
 
         try {
-            // Em vez de verificar e depois atualizar (o que pode falhar no RLS anon para Select),
-            // Fazemos um Upsert cego baseado na soma do que já temos em memória.
-            const currentVotes = votes[songId] || 0
-
-            const { error } = await supabase
-                .from('future_event_votes')
-                .upsert(
-                    {
-                        event_id: event.id,
-                        song_id: songId,
-                        votes: currentVotes + 1
-                    },
-                    { onConflict: 'event_id,song_id' }
-                )
-
-            if (error) throw error
-
-            // O realtime vai atualizar o valor na tela de todo mundo que está acessando
+            await addDoc(collection(db, 'event_votes'), {
+                event_id: event.id,
+                song_id: songId,
+                created_at: new Date().toISOString(),
+            })
         } catch (error) {
             console.error('Erro ao votar:', error)
         } finally {
-            setTimeout(() => setVotingInProgress(false), 200) // Pequeno cooldown
+            setTimeout(() => setVotingInProgress(false), 200)
         }
     }
 

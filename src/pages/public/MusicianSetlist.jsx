@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/firebase'
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import {
     Music, FileText, CheckCircle2, Clock, Trophy,
     ListMusic, History, AlertCircle, Wifi
@@ -19,7 +20,6 @@ const MusicianSetlist = () => {
     const [connected, setConnected] = useState(true)
 
     useEffect(() => {
-        // Validate token against localStorage
         const savedToken = localStorage.getItem(STORAGE_KEY)
         if (!token || token !== savedToken) {
             setValid(false)
@@ -27,41 +27,24 @@ const MusicianSetlist = () => {
             return
         }
         setValid(true)
-        fetchSongs()
 
-        const subscription = subscribeToChanges()
-        return () => { supabase.removeChannel(subscription) }
+        // Realtime listener com Firebase
+        const unsubscribe = onSnapshot(
+            query(collection(db, 'songs'), orderBy('votes', 'desc')),
+            (snapshot) => {
+                const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                setSongs(data)
+                setLoading(false)
+                setConnected(true)
+            },
+            (err) => {
+                console.error('Firestore snapshot error:', err)
+                setConnected(false)
+            }
+        )
+
+        return () => unsubscribe()
     }, [token])
-
-    const fetchSongs = async () => {
-        const { data, error } = await supabase
-            .from('songs')
-            .select('*')
-            .neq('id', '00000000-0000-0000-0000-000000000000')
-            .order('votes', { ascending: false })
-            .order('title', { ascending: true })
-
-        if (!error && data) {
-            setSongs(data)
-        }
-        setLoading(false)
-    }
-
-    const subscribeToChanges = () => {
-        return supabase
-            .channel('musician-setlist-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'songs' },
-                () => { fetchSongs() }
-            )
-            .on('system', {}, (status) => {
-                setConnected(status === 'SUBSCRIBED')
-            })
-            .subscribe((status) => {
-                setConnected(status === 'SUBSCRIBED')
-            })
-    }
 
     const playedSongs = songs
         .filter(s => s.played)

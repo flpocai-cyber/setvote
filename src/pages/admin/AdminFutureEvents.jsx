@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { db, auth, storage } from '../../lib/firebase'
+import { collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth } from 'firebase/auth'
 import { useTheme } from '../../context/ThemeContext'
 import {
     Plus, Trash2, Eye, EyeOff, Copy, Check, Loader2, CalendarPlus, MapPin,
@@ -25,14 +28,21 @@ const AdminFutureEvents = () => {
     useEffect(() => { checkUser(); fetchEvents() }, [])
 
     const checkUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) setUserId(user.id)
+        const user = auth.currentUser
+        if (user) setUserId(user.uid)
     }
 
     const fetchEvents = async () => {
         setLoading(true)
-        const { data, error } = await supabase.from('future_events').select('*').order('event_date', { ascending: true })
-        if (!error && data) setEvents(data)
+        try {
+            const snapshot = await getDocs(query(collection(db, 'future_events'), orderBy('event_date', 'asc')))
+            setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch(error) {
+            const snapshot = await getDocs(collection(db, 'future_events'))
+            let d = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            d.sort((a,b) => a.event_date.localeCompare(b.event_date))
+            setEvents(d)
+        }
         setLoading(false)
     }
 
@@ -44,8 +54,7 @@ const AdminFutureEvents = () => {
         try {
             const eventDateTime = new Date(`${formDate}T${formTime}:00`).toISOString()
             const token = crypto.randomUUID()
-            const { error } = await supabase.from('future_events').insert({ user_id: userId, title: formTitle, event_date: eventDateTime, venue: formVenue, token, is_active: true })
-            if (error) throw error
+            await addDoc(collection(db, 'future_events'), { user_id: userId, title: formTitle, event_date: eventDateTime, venue: formVenue, token, is_active: true, createdAt: serverTimestamp() })
             setFormTitle(''); setFormDate(''); setFormTime(''); setFormVenue(''); setShowForm(false)
             fetchEvents()
         } catch (error) { alert('Erro ao criar evento: ' + error.message) }
@@ -53,14 +62,16 @@ const AdminFutureEvents = () => {
     }
 
     const toggleActive = async (event) => {
-        await supabase.from('future_events').update({ is_active: !event.is_active }).eq('id', event.id)
+        await updateDoc(doc(db, 'future_events', event.id), { is_active: !event.is_active })
         fetchEvents()
     }
 
     const deleteEvent = async (event) => {
         if (!window.confirm(`Tem certeza que deseja excluir o evento "${event.title}"?\nTodos os votos associados a ele também serão perdidos.`)) return
-        const { error } = await supabase.from('future_events').delete().eq('id', event.id)
-        if (!error) fetchEvents(); else alert("Erro ao excluir: " + error.message)
+        try {
+            await deleteDoc(doc(db, 'future_events', event.id))
+            fetchEvents()
+        } catch(error) { alert("Erro ao excluir: " + error.message) }
     }
 
     const copyLink = (token) => {

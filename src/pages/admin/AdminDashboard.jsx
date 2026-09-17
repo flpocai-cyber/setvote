@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { db, auth } from '../../lib/firebase'
+import {
+    collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
+    query, where, orderBy, limit, onSnapshot, serverTimestamp, increment
+} from 'firebase/firestore'
 import {
     Trophy, CheckCircle2, ListMusic, Music,
     Play, History,
@@ -19,16 +23,13 @@ const AdminDashboard = () => {
     const [dedications, setDedications] = useState([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState(null)
-    const [profileCount, setProfileCount] = useState(0)
 
-    // Active show state (persisted to localStorage)
     const [showModalOpen, setShowModalOpen] = useState(false)
     const [futureEvents, setFutureEvents] = useState([])
     const [activeShow, setActiveShow] = useState(() => {
         try { return JSON.parse(localStorage.getItem('activeShow')) || null } catch { return null }
     })
 
-    // Playback state
     const [playingId, setPlayingId] = useState(null)
     const [audioRef, setAudioRef] = useState(null)
 
@@ -43,157 +44,110 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         fetchSongs()
-        const subscription = subscribeToVotes()
-        return () => { supabase.removeChannel(subscription) }
+        fetchSponsors()
+        fetchDedications()
+        fetchFutureEvents()
+        const unsubscribe = subscribeToVotes()
+        return () => unsubscribe()
     }, [])
 
     const fetchSongs = async () => {
         setLoading(true)
-        const { data, error } = await supabase
-            .from('songs')
-            .select('*')
-            .neq('id', '00000000-0000-0000-0000-000000000000')
-            .order('votes', { ascending: false })
-            .order('title', { ascending: true })
-
-        const { count, error: profileCountError } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-        if (!profileCountError) setProfileCount(count || 0)
-
-        // Fetch sponsors for show registration
-        const { data: sponsorsData } = await supabase
-            .from('sponsors')
-            .select('*')
-            .eq('is_active', true)
-            .order('is_master', { ascending: false })
-            .order('display_order', { ascending: true })
-        setSponsors(sponsorsData || [])
-
-        // Fetch pending dedications
-        const { data: dedicationsData } = await supabase
-            .from('dedications')
-            .select('*')
-            .eq('is_played', false)
-            .order('created_at', { ascending: true })
-        setDedications(dedicationsData || [])
-
-        if (error) {
-            console.error(error)
-            setFetchError(error.message)
-        } else {
-            setSongs(data)
+        try {
+            const snap = await getDocs(
+                query(collection(db, 'songs'), orderBy('votes', 'desc'))
+            )
+            setSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        } catch (err) {
+            setFetchError(err.message)
+        } finally {
+            setLoading(false)
         }
+    }
 
-        // Busca eventos futuros (max 3 mais próximos a partir de hoje)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            const today = new Date().toISOString()
-            const { data: eventsData, error: eventsError } = await supabase
-                .from('future_events')
-                .select('*')
-                .eq('user_id', user.id)
-                .gte('event_date', today)
-                .order('event_date', { ascending: true })
-                .limit(3)
+    const fetchSponsors = async () => {
+        const snap = await getDocs(
+            query(collection(db, 'sponsors'), where('is_active', '==', true), orderBy('display_order', 'asc'))
+        )
+        setSponsors(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    }
 
-            if (eventsError) {
-                console.error("Error fetching future events:", eventsError)
-            } else if (eventsData) {
-                setFutureEvents(eventsData)
-            }
-        }
-        setLoading(false)
+    const fetchDedications = async () => {
+        const snap = await getDocs(
+            query(collection(db, 'dedications'), where('is_played', '==', false), orderBy('created_at', 'asc'))
+        )
+        setDedications(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    }
+
+    const fetchFutureEvents = async () => {
+        const user = auth.currentUser
+        if (!user) return
+        const today = new Date().toISOString()
+        const snap = await getDocs(
+            query(collection(db, 'future_events'),
+                where('user_id', '==', user.uid),
+                where('event_date', '>=', today),
+                orderBy('event_date', 'asc'),
+                limit(3))
+        )
+        setFutureEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     }
 
     const subscribeToVotes = () => {
-        return supabase
-            .channel('schema-db-changes')
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'songs' },
-                (payload) => {
-                    setSongs(prev => {
-                        const index = prev.findIndex(s => s.id === payload.new.id)
-                        if (index === -1) return prev
-                        const newSongs = [...prev]
-                        newSongs[index] = payload.new
-                        return newSongs.sort((a, b) => b.votes - a.votes || a.title.localeCompare(b.title))
-                    })
-                }
-            )
-            .subscribe()
+        return onSnapshot(
+            query(collection(db, 'songs'), orderBy('votes', 'desc')),
+            (snapshot) => {
+                setSongs(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+            }
+        )
     }
 
-    const markAsPlayed = async (song, openSheet = true) => {
-        const play_order = songs.filter(s => s.played).length + 1
-        const { error } = await supabase
-            .from('songs')
-            .update({ played: true, play_order })
-            .eq('id', song.id)
+    const markAsPlayed = async (song, played = true) => {
+        const playOrder = played ? songs.filter(s => s.played).length + 1 : null
+        await updateDoc(doc(db, 'songs', song.id), {
+            played,
+            play_order: playOrder,
+        })
+        fetchSongs()
+    }
 
-        if (error) {
-            alert('Erro ao marcar como tocada')
-        } else {
-            if (openSheet && song.sheet_music_url) window.open(song.sheet_music_url, '_blank')
-        }
+    const markDedicationPlayed = async (dedication) => {
+        await updateDoc(doc(db, 'dedications', dedication.id), { is_played: true })
+        fetchDedications()
     }
 
     const handlePlayback = (song) => {
-        if (!song.playback_url) return
-
         if (playingId === song.id) {
-            // Stop current
-            if (audioRef) {
-                audioRef.pause()
-                audioRef.src = ''
-            }
+            if (audioRef) { audioRef.pause(); audioRef.src = '' }
             setPlayingId(null)
             setAudioRef(null)
         } else {
-            // Stop existing if any
-            if (audioRef) {
-                audioRef.pause()
-                audioRef.src = ''
-            }
-            // Start new
+            if (audioRef) { audioRef.pause(); audioRef.src = '' }
             const newAudio = new Audio(song.playback_url)
-            newAudio.play().catch(e => console.error("Playback error", e))
-
-            newAudio.onended = () => {
-                setPlayingId(null)
-                setAudioRef(null)
-            }
-
+            newAudio.play().catch(e => console.error('Playback error', e))
+            newAudio.onended = () => { setPlayingId(null); setAudioRef(null) }
             setAudioRef(newAudio)
             setPlayingId(song.id)
         }
     }
 
-    const markDedicationPlayed = async (dedication) => {
-        await supabase.from('dedications').update({ is_played: true }).eq('id', dedication.id)
-        fetchSongs()
-    }
-
-    // ─── Cadastrar Show ────────────────────────────────────────────────
     const handleRegisterShow = async (form) => {
-        // Build file_key: "VENUE-DD-MM-YY"
         const venuePart = form.venue.replace(/\s+/g, '').substring(0, 10).toUpperCase()
         const [y, m, d] = form.show_date.split('-')
         const fileKey = `${venuePart}-${d}-${m}-${y.slice(2)}`
-
         const show = { ...form, file_key: fileKey }
         setActiveShow(show)
         localStorage.setItem('activeShow', JSON.stringify(show))
 
-        // Save event sponsors to profile in Supabase
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-            await supabase.from('profiles').update({
-                event_sponsors: form.event_sponsors || []
-            }).eq('id', authUser.id)
+        const user = auth.currentUser
+        if (user) {
+            await setDoc(doc(db, 'profiles', user.uid), {
+                event_sponsors: form.event_sponsors || [],
+                updatedAt: serverTimestamp()
+            }, { merge: true })
         }
     }
 
-    // ─── Finalizar Show ────────────────────────────────────────────────
     const finalizeShow = async () => {
         if (!activeShow) {
             if (!window.confirm('Nenhum show cadastrado. Deseja apenas resetar os votos?')) return
@@ -204,44 +158,35 @@ const AdminDashboard = () => {
         if (!window.confirm(`Finalizar o show "${activeShow.file_key}" e salvar os dados?\n\nIsso irá zerar a votação após salvar.`)) return
 
         try {
-            // 1. Save show to Supabase
-            const { data: showRow, error: showErr } = await supabase
-                .from('shows')
-                .insert({
-                    file_key: activeShow.file_key,
-                    show_date: activeShow.show_date,
-                    venue: activeShow.venue,
-                    city: activeShow.city,
-                    state: activeShow.state,
-                    musician_name: activeShow.musician_name
-                })
-                .select()
-                .single()
+            // 1. Save show
+            const showRef = await addDoc(collection(db, 'shows'), {
+                file_key: activeShow.file_key,
+                show_date: activeShow.show_date,
+                venue: activeShow.venue,
+                city: activeShow.city,
+                state: activeShow.state,
+                musician_name: activeShow.musician_name,
+                createdAt: serverTimestamp()
+            })
 
-            if (showErr) throw showErr
-
-            // 2. Save all songs snapshot
+            // 2. Save song snapshots
             const allSongs = songs.filter(s => s.votes > 0 || s.played)
-            if (allSongs.length > 0) {
-                const songRows = allSongs.map(s => ({
-                    show_id: showRow.id,
+            for (const s of allSongs) {
+                await addDoc(collection(db, 'show_songs'), {
+                    show_id: showRef.id,
                     song_title: s.title,
                     artist: s.artist,
                     votes: s.votes,
                     played: s.played,
-                    play_order: s.play_order
-                }))
-                const { error: sErr } = await supabase.from('show_songs').insert(songRows)
-                if (sErr) throw sErr
+                    play_order: s.play_order || null
+                })
             }
 
-            // 3. Reset votes
+            // 3. Reset
             await doReset()
 
-            // 4. Clear active show
             setActiveShow(null)
             localStorage.removeItem('activeShow')
-
             alert(`✅ Show "${activeShow.file_key}" finalizado e salvo com sucesso!`)
         } catch (err) {
             console.error(err)
@@ -250,25 +195,26 @@ const AdminDashboard = () => {
     }
 
     const doReset = async () => {
-        const { error: songError } = await supabase
-            .from('songs')
-            .update({ votes: 0, played: false, play_order: null })
-            .neq('id', '00000000-0000-0000-0000-000000000000')
-
-        await supabase.from('votes').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-            const now = new Date().toISOString()
-            await supabase.from('profiles').upsert({
-                id: authUser.id,
-                last_reset_at: now,
-                updated_at: now,
-                event_sponsors: []
-            })
+        const songsSnap = await getDocs(collection(db, 'songs'))
+        for (const s of songsSnap.docs) {
+            await updateDoc(doc(db, 'songs', s.id), { votes: 0, played: false, play_order: null })
         }
 
-        if (songError) throw songError
+        const votesSnap = await getDocs(collection(db, 'votes'))
+        for (const v of votesSnap.docs) {
+            await deleteDoc(doc(db, 'votes', v.id))
+        }
+
+        const user = auth.currentUser
+        if (user) {
+            const now = new Date().toISOString()
+            await setDoc(doc(db, 'profiles', user.uid), {
+                last_reset_at: now,
+                event_sponsors: [],
+                updatedAt: serverTimestamp()
+            }, { merge: true })
+        }
+
         fetchSongs()
     }
 
@@ -301,7 +247,6 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="flex flex-wrap gap-3 items-center">
-                            {/* Cadastrar Show */}
                             <button
                                 onClick={() => setShowModalOpen(true)}
                                 className="gold-bg-gradient text-charcoal-950 font-bold px-5 py-3 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-gold-500/20 hover:scale-[1.02] active:scale-95 transition-all"
@@ -310,7 +255,6 @@ const AdminDashboard = () => {
                                 <span>{activeShow ? 'Show Ativo' : 'Cadastrar Show'}</span>
                             </button>
 
-                            {/* Finalizar Show */}
                             <button
                                 onClick={finalizeShow}
                                 className={`px-5 py-3 border rounded-xl flex items-center justify-center space-x-2 transition-all ${darkMode ? 'border-charcoal-700 text-charcoal-400 hover:text-white hover:bg-charcoal-900' : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
@@ -336,12 +280,8 @@ const AdminDashboard = () => {
                                 <div className="text-white font-bold">{activeShow.musician_name}</div>
                             </div>
                             <div className="flex items-center gap-4 text-charcoal-400 text-sm">
-                                <span className="flex items-center gap-1.5">
-                                    <CalendarDays size={13} /> {formatDate(activeShow.show_date)}
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                    <MapPin size={13} /> {activeShow.venue} — {activeShow.city}/{activeShow.state}
-                                </span>
+                                <span className="flex items-center gap-1.5"><CalendarDays size={13} /> {formatDate(activeShow.show_date)}</span>
+                                <span className="flex items-center gap-1.5"><MapPin size={13} /> {activeShow.venue} — {activeShow.city}/{activeShow.state}</span>
                                 <span className="bg-charcoal-800 text-charcoal-400 text-xs px-2 py-1 rounded-full font-mono">{activeShow.file_key}</span>
                             </div>
                         </motion.div>
@@ -439,12 +379,8 @@ const AdminDashboard = () => {
                                                 </button>
 
                                                 {topSong.sheet_music_url && (
-                                                    <a
-                                                        href={topSong.sheet_music_url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="px-8 py-3 bg-charcoal-800 text-gold-500 border border-gold-500/30 rounded-2xl flex items-center justify-center space-x-3 hover:bg-gold-500/10 transition-all font-bold text-sm"
-                                                    >
+                                                    <a href={topSong.sheet_music_url} target="_blank" rel="noreferrer"
+                                                        className="px-8 py-3 bg-charcoal-800 text-gold-500 border border-gold-500/30 rounded-2xl flex items-center justify-center space-x-3 hover:bg-gold-500/10 transition-all font-bold text-sm">
                                                         <FileText size={18} />
                                                         <span>Ver Partitura</span>
                                                     </a>
@@ -455,17 +391,7 @@ const AdminDashboard = () => {
                                                         onClick={() => handlePlayback(topSong)}
                                                         className="px-8 py-3 bg-charcoal-800 text-blue-400 border border-blue-500/30 rounded-2xl flex items-center justify-center space-x-3 hover:bg-blue-500/10 transition-all font-bold text-sm mt-1"
                                                     >
-                                                        {playingId === topSong.id ? (
-                                                            <>
-                                                                <Pause size={18} />
-                                                                <span>Parar Playback</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Headphones size={18} />
-                                                                <span>Playback</span>
-                                                            </>
-                                                        )}
+                                                        {playingId === topSong.id ? <><Pause size={18} /><span>Parar Playback</span></> : <><Headphones size={18} /><span>Playback</span></>}
                                                     </button>
                                                 )}
 
@@ -501,18 +427,15 @@ const AdminDashboard = () => {
                                                 initial={{ opacity: 0, x: -20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: 20 }}
-                                                className={`rounded-2xl p-4 flex items-center justify-between group border hover:border-gold-500/30 transition-all ${
-                                                    darkMode ? 'glass border-transparent' : 'bg-white border-gray-200 shadow-sm'
-                                                }`}
+                                                className={`rounded-2xl p-4 flex items-center justify-between group border hover:border-gold-500/30 transition-all ${darkMode ? 'glass border-transparent' : 'bg-white border-gray-200 shadow-sm'}`}
                                             >
                                                 <div className="flex items-center space-x-4">
                                                     <div className={`font-display font-bold w-6 ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}>{index + 2}</div>
                                                     <div className={`w-12 h-12 rounded-lg overflow-hidden border ${darkMode ? 'bg-charcoal-800 border-charcoal-700' : 'bg-gray-100 border-gray-200'}`}>
-                                                        {song.cover_image_url ? (
-                                                            <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center"><Music className={`w-5 h-5 ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`} /></div>
-                                                        )}
+                                                        {song.cover_image_url
+                                                            ? <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                                                            : <div className="w-full h-full flex items-center justify-center"><Music className={`w-5 h-5 ${darkMode ? 'text-charcoal-600' : 'text-gray-400'}`} /></div>
+                                                        }
                                                     </div>
                                                     <div>
                                                         <div className={`font-bold group-hover:text-gold-400 transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{song.title}</div>
@@ -525,25 +448,16 @@ const AdminDashboard = () => {
                                                         <div className={`text-[10px] uppercase tracking-tighter ${darkMode ? 'text-charcoal-500' : 'text-gray-400'}`}>Votos</div>
                                                     </div>
                                                     {song.sheet_music_url && (
-                                                        <a
-                                                            href={song.sheet_music_url}
-                                                            target="_blank"
-                                                            rel="noreferrer"
+                                                        <a href={song.sheet_music_url} target="_blank" rel="noreferrer"
                                                             className={`p-3 rounded-xl transition-all hover:text-gold-500 ${darkMode ? 'bg-charcoal-800 text-charcoal-400' : 'bg-gray-100 text-gray-500'}`}
-                                                            title="Ver Partitura"
-                                                        >
+                                                            title="Ver Partitura">
                                                             <FileText size={18} />
                                                         </a>
                                                     )}
                                                     {song.playback_url && (
                                                         <button
                                                             onClick={() => handlePlayback(song)}
-                                                            className={`p-3 rounded-xl transition-all ${playingId === song.id
-                                                                    ? 'text-blue-500 bg-blue-500/10'
-                                                                    : darkMode
-                                                                        ? 'bg-charcoal-800 text-charcoal-400 hover:text-blue-400'
-                                                                        : 'bg-gray-100 text-gray-500 hover:text-blue-500'
-                                                                }`}
+                                                            className={`p-3 rounded-xl transition-all ${playingId === song.id ? 'text-blue-500 bg-blue-500/10' : darkMode ? 'bg-charcoal-800 text-charcoal-400 hover:text-blue-400' : 'bg-gray-100 text-gray-500 hover:text-blue-500'}`}
                                                             title="Tocar Playback"
                                                         >
                                                             {playingId === song.id ? <Pause size={18} /> : <Headphones size={18} />}
@@ -617,11 +531,8 @@ const AdminDashboard = () => {
                                         <CalendarDays size={16} className="text-gold-500" /> Próximos Eventos
                                     </h3>
                                     {futureEvents.map(event => (
-                                        <Link
-                                            key={event.id}
-                                            to="/admin/eventos-futuros"
-                                            className={`block rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}
-                                        >
+                                        <Link key={event.id} to="/admin/eventos-futuros"
+                                            className={`block rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                             <div className={`font-bold text-sm mb-1 truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{event.title}</div>
                                             <div className={`flex items-center gap-4 text-xs ${darkMode ? 'text-charcoal-400' : 'text-gray-500'}`}>
                                                 <span className="flex items-center gap-1"><CalendarDays size={12} /> {new Date(event.event_date).toLocaleDateString('pt-BR')}</span>
@@ -640,8 +551,7 @@ const AdminDashboard = () => {
                                     { to: '/admin/patrocinadores', icon: <Users className="text-gold-500" size={18} />, label: 'Patrocinadores', sub: 'Gerenciar logos e links' },
                                 ].map(({ to, icon, label, sub }) => (
                                     <Link key={to} to={to}
-                                        className={`flex items-center justify-between rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}
-                                    >
+                                        className={`flex items-center justify-between rounded-2xl p-4 border hover:border-gold-500/40 hover:bg-gold-500/5 transition-all group ${darkMode ? 'glass border-charcoal-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                         <div className="flex items-center space-x-3">
                                             <div className="w-9 h-9 rounded-xl bg-gold-500/10 flex items-center justify-center">{icon}</div>
                                             <div>
