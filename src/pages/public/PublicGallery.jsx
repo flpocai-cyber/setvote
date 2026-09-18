@@ -90,64 +90,71 @@ const PublicGallery = () => {
     }, [])
 
     const fetchData = async () => {
-        setLoading(true)
+        try {
+            setLoading(true)
+            setFetchError(null)
 
-        // Fetch profile (primeiro documento de profiles)
-        const profilesSnap = await getDocs(collection(db, 'profiles'))
-        const profileDoc = profilesSnap.docs[0]
-        if (profileDoc) {
-            const profileData = { id: profileDoc.id, ...profileDoc.data() }
-            const localResetAt = localStorage.getItem('last_reset_at')
-            const dbResetAt = profileData.last_reset_at
+            // Fetch profile (primeiro documento de profiles)
+            const profilesSnap = await getDocs(collection(db, 'profiles'))
+            const profileDoc = profilesSnap.docs[0]
+            if (profileDoc) {
+                const profileData = { id: profileDoc.id, ...profileDoc.data() }
+                const localResetAt = localStorage.getItem('last_reset_at')
+                const dbResetAt = profileData.last_reset_at
 
-            if (dbResetAt && localResetAt !== dbResetAt) {
-                localStorage.removeItem('voted_song_ids')
-                localStorage.removeItem('votes_submitted')
-                localStorage.removeItem('vote_session_id')
-                localStorage.setItem('last_reset_at', dbResetAt)
-                setSelectedSongIds([])
-                setVotesSubmitted(false)
-                window.location.reload()
-                return
+                if (dbResetAt && localResetAt !== dbResetAt) {
+                    localStorage.removeItem('voted_song_ids')
+                    localStorage.removeItem('votes_submitted')
+                    localStorage.removeItem('vote_session_id')
+                    localStorage.setItem('last_reset_at', dbResetAt)
+                    setSelectedSongIds([])
+                    setVotesSubmitted(false)
+                    window.location.reload()
+                    return
+                }
+                localStorage.setItem('last_reset_at', dbResetAt || '')
+                setProfile(profileData)
             }
-            localStorage.setItem('last_reset_at', dbResetAt || '')
-            setProfile(profileData)
+
+            // Fetch active songs for voting (not played)
+            const songsSnap = await getDocs(
+                query(collection(db, 'songs'),
+                    where('is_active', '==', true),
+                    where('played', '==', false))
+            )
+            const songsData = songsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            songsData.sort((a,b) => (a.title || '').localeCompare(b.title || ''))
+
+            // Fetch all songs for the songs modal
+            const allSongsSnap = await getDocs(
+                query(collection(db, 'songs'))
+            )
+            const allSongsData = allSongsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            allSongsData.sort((a,b) => (a.title || '').localeCompare(b.title || ''))
+
+            // Fetch active sponsors
+            const sponsorsSnap = await getDocs(
+                query(collection(db, 'sponsors'),
+                    where('is_active', '==', true))
+            )
+            const sponsorsData = sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            sponsorsData.sort((a,b) => (a.display_order || 0) - (b.display_order || 0))
+
+            // Fetch about photos
+            const photosSnap = await getDocs(query(collection(db, 'about_photos')))
+            const photosData = photosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            photosData.sort((a,b) => (a.display_order || 0) - (b.display_order || 0))
+
+            setSongs(songsData)
+            setAllSongs(allSongsData)
+            setSponsors(sponsorsData)
+            setAboutPhotos(photosData)
+        } catch (error) {
+            console.error("Error fetching data:", error)
+            setFetchError(error.message)
+        } finally {
+            setLoading(false)
         }
-
-        // Fetch active songs for voting (not played)
-        const songsSnap = await getDocs(
-            query(collection(db, 'songs'),
-                where('is_active', '==', true),
-                where('played', '==', false),
-                orderBy('title', 'asc'))
-        )
-        const songsData = songsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-
-        // Fetch all songs for the songs modal
-        const allSongsSnap = await getDocs(
-            query(collection(db, 'songs'), orderBy('title', 'asc'))
-        )
-        const allSongsData = allSongsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-
-        // Fetch active sponsors
-        const sponsorsSnap = await getDocs(
-            query(collection(db, 'sponsors'),
-                where('is_active', '==', true),
-                orderBy('display_order', 'asc'))
-        )
-        const sponsorsData = sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-
-        // Fetch about photos
-        const photosSnap = await getDocs(
-            query(collection(db, 'about_photos'), orderBy('display_order', 'asc'))
-        )
-        const aboutPhotosData = photosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-
-        setSongs(songsData)
-        setAllSongs(allSongsData)
-        setSponsors(sponsorsData)
-        setAboutPhotos(aboutPhotosData)
-        setLoading(false)
     }
 
     const subscribeToRealtime = () => {

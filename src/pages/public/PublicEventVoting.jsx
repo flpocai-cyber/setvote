@@ -46,18 +46,20 @@ const PublicEventVoting = () => {
             // 2. Fetch active songs
             const songsSnap = await getDocs(
                 query(collection(db, 'songs'),
-                    where('is_active', '==', true),
-                    orderBy('title', 'asc'))
+                    where('is_active', '==', true))
             )
-            setSongs(songsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+            const songsData = songsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            songsData.sort((a,b) => (a.title || '').localeCompare(b.title || ''))
+            setSongs(songsData)
 
             // 3. Fetch sponsors
             const sponsorsSnap = await getDocs(
                 query(collection(db, 'sponsors'),
-                    where('is_active', '==', true),
-                    orderBy('display_order', 'asc'))
+                    where('is_active', '==', true))
             )
-            setSponsors(sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+            const sponsorsData = sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            sponsorsData.sort((a,b) => (a.display_order || 0) - (b.display_order || 0))
+            setSponsors(sponsorsData)
 
             // 4. Subscribe realtime to event votes
             const unsubVotes = onSnapshot(

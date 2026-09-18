@@ -66,31 +66,41 @@ const AdminDashboard = () => {
     }
 
     const fetchSponsors = async () => {
-        const snap = await getDocs(
-            query(collection(db, 'sponsors'), where('is_active', '==', true), orderBy('display_order', 'asc'))
-        )
-        setSponsors(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        try {
+            const snap = await getDocs(
+                query(collection(db, 'sponsors'), where('is_active', '==', true))
+            )
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            data.sort((a,b) => (a.display_order || 0) - (b.display_order || 0))
+            setSponsors(data)
+        } catch(e) { console.error('Error sponsors:', e) }
     }
 
     const fetchDedications = async () => {
-        const snap = await getDocs(
-            query(collection(db, 'dedications'), where('is_played', '==', false), orderBy('created_at', 'asc'))
-        )
-        setDedications(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        try {
+            const snap = await getDocs(
+                query(collection(db, 'dedications'), where('is_played', '==', false))
+            )
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            data.sort((a,b) => (a.created_at || '').localeCompare(b.created_at || ''))
+            setDedications(data)
+        } catch(e) { console.error('Error dedications:', e) }
     }
 
     const fetchFutureEvents = async () => {
         const user = auth.currentUser
         if (!user) return
-        const today = new Date().toISOString()
-        const snap = await getDocs(
-            query(collection(db, 'future_events'),
-                where('user_id', '==', user.uid),
-                where('event_date', '>=', today),
-                orderBy('event_date', 'asc'),
-                limit(3))
-        )
-        setFutureEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        try {
+            const today = new Date().toISOString()
+            const snap = await getDocs(
+                query(collection(db, 'future_events'),
+                    where('user_id', '==', user.uid),
+                    where('event_date', '>=', today))
+            )
+            let data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            data.sort((a,b) => (a.event_date || '').localeCompare(b.event_date || ''))
+            setFutureEvents(data.slice(0, 3))
+        } catch(e) { console.error('Error future events:', e) }
     }
 
     const subscribeToVotes = () => {
